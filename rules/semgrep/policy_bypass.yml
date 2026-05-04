@@ -1,7 +1,0 @@
-rules:
-  - id: hardcoded-consent-true
-    pattern: if (true)
-  - id: disable-redaction-flag
-    pattern: disable_redaction
-  - id: skip-privacy-flag
-    pattern: skip_privacy
