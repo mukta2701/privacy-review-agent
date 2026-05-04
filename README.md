@@ -1,216 +1,302 @@
 # Privacy Review Agent
 
-Privacy Review Agent is an offline-first code-review gate for pull requests.
-It detects privacy, sensitive-data, and policy-risk issues before merge.
+An offline-first CLI tool that scans code for privacy and security risks — secrets, PII exposure, unsafe data transfers, and policy bypasses — before they reach production.
 
-## What This Project Does
+Run it locally, wire it as a pre-commit hook, or drop it into GitHub Actions CI.
 
-It scans code and reports findings in 6 risk categories:
+---
 
-1. `SECRET_EXPOSURE`
-2. `RAW_PII_LOGGING`
-3. `THIRD_PARTY_PII_TRANSFER`
-4. `PII_IN_MODEL_PROMPT`
-5. `INSUFFICIENT_REDACTION`
-6. `POLICY_BYPASS`
+## Installation
 
-Each finding includes:
+**Requirements:** Python 3.11+
 
-- category
-- severity
-- confidence
-- file + line
-- evidence
-- remediation
-- fingerprint
-- blocking status
-
-## How It Works (Step-by-Step)
-
-```mermaid
-flowchart TD
-    A[PR opened or updated] --> B[Collect changed files and changed lines]
-    B --> C[Run 6 detectors]
-    C --> D[Normalize findings and create fingerprints]
-    D --> E[Apply suppressions and baseline]
-    E --> F[Evaluate blocking policy]
-    F --> G[Render outputs: Markdown, JSON, SARIF]
-    G --> H[CI check result: pass or block]
+```bash
+git clone https://github.com/mukta2701/shiny-invention.git
+cd shiny-invention
+pip install -e .
 ```
 
-### Detection Pipeline
+Verify it installed:
 
-```mermaid
-flowchart LR
-    S1[Secrets Detector] --> N[Finding Normalizer]
-    S2[Raw PII Logging Detector] --> N
-    S3[Third-Party Transfer Detector] --> N
-    S4[PII in Prompt Detector] --> N
-    S5[Missing Redaction Detector] --> N
-    S6[Policy Bypass Detector] --> N
-    N --> P[Policy Gate]
+```bash
+privacy-review-agent --version
 ```
 
-## Blocking Rules
+---
 
-A finding blocks merge only when all are true:
+## Quick Start
 
-1. severity is `critical` or `high`
-2. confidence is `high`
-3. finding is on changed PR lines
-4. finding is not suppressed
-5. finding is not in baseline
+Scan a folder:
 
-## Governance Model
-
-### Suppressions
-
-Suppressions are valid only if they include:
-
-- `reason`
-- `privacy_approver`
-- `security_approver`
-- `created_on`
-- `expires_on`
-- GitHub issue ticket URL
-
-Rules:
-
-- max TTL: 14 days
-- no auto-renew
-- expired suppressions are ignored
-
-### Rerun Approval (Fail-Closed)
-
-```mermaid
-flowchart TD
-    A[Blocking findings fixed] --> B[Manual rerun requested]
-    B --> C{SECURITY_TEAM_SLUG configured?}
-    C -- No --> D[Fail closed: check remains blocked]
-    C -- Yes --> E{Required label present? privacy-rerun-approved}
-    E -- No --> D
-    E -- Yes --> F[Allow rerun approval check]
+```bash
+privacy-review-agent scan --path ./src --format md
 ```
 
-## Offline-First Behavior
-
-- Default mode is offline.
-- Secret verification egress is optional and explicit (`--allow-verifier-egress`).
-- Without explicit online mode, no external verification calls are used.
-
-## Command Reference
-
-### 1) Scan PR diff
+Scan only what changed in a pull request:
 
 ```bash
 privacy-review-agent scan --base-ref origin/main --head-ref HEAD --format md
 ```
 
-### 2) Scan a local folder
+Run the built-in demo (safe fixture passes, unsafe fixture blocks):
 
 ```bash
-privacy-review-agent scan --path tests/fixtures/unsafe --format md
+make demo
 ```
 
-### 3) Create baseline snapshot
+---
+
+## Commands
+
+### Scan a path or PR diff
+
+```bash
+# Scan a local folder or file
+privacy-review-agent scan --path <path> --format md
+
+# Scan only changed lines in a git diff
+privacy-review-agent scan --base-ref origin/main --head-ref HEAD --format md
+
+# Output as JSON
+privacy-review-agent scan --path ./src --format json
+
+# Output as SARIF (for GitHub code scanning)
+privacy-review-agent scan --path ./src --format sarif
+```
+
+### Create a baseline snapshot
+
+Baseline an existing set of findings so they no longer block — useful when adopting the tool on a codebase with pre-existing issues.
 
 ```bash
 privacy-review-agent baseline create --ref HEAD --output .privacy-review-baseline.json
 ```
 
-### 4) Enforce rerun approval gate
+### Calibrate detection thresholds
 
-```bash
-privacy-review-agent enforce-rerun-approval --required-label privacy-rerun-approved
-```
-
-### 5) Run calibration thresholds
+Run precision and recall checks against the included test fixtures:
 
 ```bash
 privacy-review-agent calibrate --fixture-set tests/fixtures
 ```
 
-## Quick Proof It Works
+### Enforce rerun approval gate
 
-Run these from repo root:
-
-```bash
-make verify
-```
-
-Then run a demo scan:
+For CI use: blocks rerun unless a required label is present on the PR.
 
 ```bash
-make demo
+privacy-review-agent enforce-rerun-approval --required-label privacy-rerun-approved
 ```
 
-Expected demo behavior:
-
-1. Unsafe fixture scan exits `2` and shows blocking findings.
-2. Safe fixture scan exits `0` with no findings.
-
-## Recruiter Notes (Important Context)
-
-This repository intentionally includes insecure snippets in test fixtures and design documents to validate detector behavior.
-Those files are part of the test strategy, not production logic.
-
-- Intentionally unsafe fixtures: `tests/fixtures/unsafe/`
-- Design/plan docs may contain example bad patterns for demonstration.
-
-If you scan the entire repository, you should expect many findings from those intentional examples.
-To evaluate project quality and expected scanner behavior, run:
-
-```bash
-make verify
-make demo
-```
+---
 
 ## Exit Codes
 
-- `0`: no blocking findings
-- `1`: runtime/config error
-- `2`: blocking policy triggered
+| Code | Meaning |
+|------|---------|
+| `0` | No blocking findings |
+| `1` | Runtime or configuration error |
+| `2` | Blocking findings detected |
 
-## Optional: Global Pre-commit Hook (Local Machine)
+---
 
-This is optional local setup and is not required by the repository itself.
+## What It Detects
 
-```bash
-python -m pip install -e .
-mkdir -p "$HOME/.git-hooks"
-git config --global core.hooksPath "$HOME/.git-hooks"
+Six risk categories:
+
+| Category | Example |
+|----------|---------|
+| `SECRET_EXPOSURE` | Hardcoded API keys, tokens, passwords |
+| `RAW_PII_LOGGING` | `console.log(user.email)` or `logger.info(req.body)` |
+| `THIRD_PARTY_PII_TRANSFER` | Sending PII to an unapproved vendor endpoint |
+| `PII_IN_MODEL_PROMPT` | Raw personal data passed into an LLM prompt |
+| `INSUFFICIENT_REDACTION` | Sensitive fields logged without masking/hashing |
+| `POLICY_BYPASS` | Consent or privacy checks hard-coded to skip |
+
+Each finding includes: category, severity, confidence, file + line, evidence snippet, remediation suggestion, and a stable fingerprint for deduplication.
+
+---
+
+## Blocking Policy
+
+A finding blocks only when **all** of these are true:
+
+1. Severity is `critical` or `high`
+2. Confidence is `high`
+3. Finding is on changed lines (PR diff mode) or in the scanned path (local mode)
+4. Finding is not suppressed
+5. Finding is not in the baseline
+
+`medium` and `low` findings are reported as warnings but never block.
+
+---
+
+## How It Works
+
+```mermaid
+flowchart TD
+    A[Code / PR diff] --> B[Collect changed files and lines]
+    B --> C[Run 6 detectors in parallel]
+    C --> D[Normalize findings and generate fingerprints]
+    D --> E[Apply suppressions and baseline]
+    E --> F[Evaluate blocking policy]
+    F --> G[Render output: Markdown / JSON / SARIF]
+    G --> H{Any blocking findings?}
+    H -- Yes --> I[Exit 2 — blocked]
+    H -- No --> J[Exit 0 — clean]
 ```
 
-Then place a `pre-commit` script in `$HOME/.git-hooks/pre-commit` that calls:
+---
 
-```bash
-privacy-review-agent scan --path <staged-file> --format md
+## Suppressing False Positives
+
+Add an entry to `.privacy-review-ignore.yaml` in your repo root:
+
+```yaml
+max_ttl_days: 14
+require_github_issue: true
+entries:
+  - id: <fingerprint>
+    reason: "This is a test fixture, not real PII"
+    privacy_approver: your-name
+    security_approver: your-name
+    created_on: 2026-05-04
+    expires_on: 2026-11-04
+    ticket: https://github.com/your-org/your-repo/issues/123
 ```
 
-## CI Integration
+Rules:
+- Maximum TTL: 14 days
+- Expired suppressions are automatically ignored
+- No auto-renew
 
-Workflow file:
+Get the fingerprint from the JSON output:
 
-- `.github/workflows/privacy-review.yml`
+```bash
+privacy-review-agent scan --path <file> --format json
+```
 
-CI outputs:
+---
 
-- SARIF upload for code scanning
-- JSON artifact retention: 90 days
-- rerun approval enforcement step
+## Pre-commit Hook (Global, All Repos)
 
-## Key Files
+Wire the agent to run automatically before every `git commit` on your machine:
 
-- `src/privacy_review_agent/cli.py`
-- `src/privacy_review_agent/engine.py`
-- `src/privacy_review_agent/detectors/`
-- `src/privacy_review_agent/policies/`
-- `.privacy-review-ignore.yaml`
-- `ARCHITECTURE.md`
+```bash
+# Install the agent
+pip install -e .
 
-## Current Launch Blockers
+# Create a global hooks directory
+mkdir -p ~/.git-hooks
 
-Before production go-live, you still need to provide:
+# Write the hook script
+cat > ~/.git-hooks/pre-commit << 'EOF'
+#!/bin/bash
+export PATH="$HOME/Library/Python/3.13/bin:$PATH"
 
-1. Security team slug (`org/team-slug`)
-2. Pilot repository (`org/repo`)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null)
+[ -z "$STAGED_FILES" ] && exit 0
+
+CODE_FILES=$(echo "$STAGED_FILES" | grep -E '\.(py|js|ts|tsx|jsx|yaml|yml|json|rb|go|java|env)$' || true)
+[ -z "$CODE_FILES" ] && exit 0
+
+BLOCK=0
+for file in $CODE_FILES; do
+    [ -f "$file" ] || continue
+    privacy-review-agent scan --path "$file" --format md
+    [ $? -eq 2 ] && BLOCK=1
+done
+
+if [ $BLOCK -eq 1 ]; then
+    echo ""
+    echo "Commit blocked: fix the critical/high risks above."
+    echo "To suppress a false positive: add an entry to .privacy-review-ignore.yaml"
+    echo "To skip in an emergency: git commit --no-verify"
+    exit 1
+fi
+exit 0
+EOF
+
+chmod +x ~/.git-hooks/pre-commit
+
+# Tell git to use this directory for all repos
+git config --global core.hooksPath ~/.git-hooks
+```
+
+Behavior:
+- `critical`/`high` findings → commit blocked
+- `medium`/`low` findings → warning printed, commit allowed
+- Clean code → silent, commit allowed
+
+---
+
+## CI Integration (GitHub Actions)
+
+The workflow at `.github/workflows/privacy-review.yml` runs on every pull request:
+
+- Scans only changed lines (not the full repo)
+- Uploads findings as a SARIF report to GitHub Code Scanning
+- Retains JSON artifacts for 90 days
+- Enforces rerun approval if configured
+
+To use it in your own repo, copy `.github/workflows/privacy-review.yml` and set these in your repo settings:
+
+| Setting | Description |
+|---------|-------------|
+| `SECURITY_TEAM_SLUG` | GitHub team slug for rerun approval (`org/team-name`) |
+
+---
+
+## Running the Tests
+
+```bash
+# Lint + all tests
+make verify
+
+# Tests only
+make test
+
+# Calibration (precision ≥ 0.85, recall ≥ 0.80)
+make calibrate
+```
+
+---
+
+## Project Structure
+
+```
+src/privacy_review_agent/
+├── cli.py              # Entry point
+├── engine.py           # Orchestration and blocking logic
+├── models.py           # Finding schema
+├── detectors/          # 6 risk detectors
+├── reporters/          # Markdown, JSON, SARIF output
+└── policies/           # YAML policy files
+
+tests/
+├── unit/               # Unit tests per detector/component
+├── integration/        # End-to-end CLI and CI contract tests
+└── fixtures/
+    ├── safe/           # Clean code — expected 0 findings
+    └── unsafe/         # Intentionally risky code — used to validate detectors
+```
+
+---
+
+## A Note on Test Fixtures
+
+The `tests/fixtures/unsafe/` directory and some documentation examples contain intentionally risky code patterns (hardcoded keys, raw PII logging, etc.). These exist to validate that the detectors work correctly — they are not production code.
+
+If you scan the entire repository, expect findings from those files. To see the tool working as intended on safe vs unsafe input, run:
+
+```bash
+make demo
+```
+
+---
+
+## Further Reading
+
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — design decisions, pipeline internals, governance model
+- [`docs/plans/privacy-review-agent-spec.md`](docs/plans/privacy-review-agent-spec.md) — full specification
+- [`docs/operations/runbook.md`](docs/operations/runbook.md) — day-to-day operational guide
