@@ -1,0 +1,7 @@
+rules:
+  - id: raw-req-body-log
+    pattern: console.log(req.body)
+  - id: raw-user-log
+    pattern: logger.info(user)
+  - id: raw-headers-log
+    pattern: logger.info(req.headers)

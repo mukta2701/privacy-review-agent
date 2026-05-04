@@ -1,0 +1,3 @@
+max_ttl_days: 14
+require_github_issue: true
+entries: []

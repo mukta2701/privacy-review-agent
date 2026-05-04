@@ -1,0 +1,7 @@
+rules:
+  - id: external-post-sensitive
+    pattern: requests.post(
+  - id: external-fetch-sensitive
+    pattern: fetch(
+  - id: external-axios-sensitive
+    pattern: axios.post(

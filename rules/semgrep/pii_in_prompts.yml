@@ -1,0 +1,7 @@
+rules:
+  - id: fstring-pii-prompt
+    pattern: prompt = f"
+  - id: llm-input-inline
+    pattern: input=
+  - id: llm-messages-inline
+    pattern: messages=

@@ -1,0 +1,5 @@
+rules:
+  - id: unredacted-logger-payload
+    pattern: logger.info({
+  - id: unredacted-telemetry
+    pattern: telemetry.track(
