@@ -1,0 +1,13 @@
+categories:
+  - id: SECRET_EXPOSURE
+    severity_default: critical
+  - id: RAW_PII_LOGGING
+    severity_default: high
+  - id: THIRD_PARTY_PII_TRANSFER
+    severity_default: high
+  - id: PII_IN_MODEL_PROMPT
+    severity_default: high
+  - id: INSUFFICIENT_REDACTION
+    severity_default: medium
+  - id: POLICY_BYPASS
+    severity_default: high

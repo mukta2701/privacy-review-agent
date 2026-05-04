@@ -1,0 +1,5 @@
+approved_redaction_helpers:
+  - redact
+  - mask
+  - hash
+  - tokenize

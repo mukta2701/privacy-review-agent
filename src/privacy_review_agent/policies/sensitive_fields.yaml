@@ -1,0 +1,23 @@
+fields:
+  - email
+  - phone
+  - name
+  - first_name
+  - last_name
+  - address
+  - location
+  - lat
+  - lon
+  - ssn
+  - passport
+  - user_id
+  - customer_id
+  - message
+  - chat
+  - transcript
+  - upload
+  - cookie
+  - token
+  - authorization
+  - headers
+  - body

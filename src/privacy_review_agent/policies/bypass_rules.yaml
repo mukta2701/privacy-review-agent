@@ -1,0 +1,6 @@
+bypass_markers:
+  - skip_privacy
+  - bypass_privacy
+  - disable_redaction
+  - ignore_consent
+  - privacy_check=false

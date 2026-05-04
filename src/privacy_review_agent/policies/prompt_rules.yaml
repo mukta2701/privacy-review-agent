@@ -1,0 +1,11 @@
+llm_sinks:
+  - openai.ChatCompletion.create
+  - client.responses.create
+  - anthropic.messages.create
+  - model.generate_content
+quasi_identifiers:
+  - message
+  - chat
+  - transcript
+  - support_ticket
+  - upload
