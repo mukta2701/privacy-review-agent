@@ -4,7 +4,7 @@ from pathlib import Path
 
 from privacy_review_agent.detectors.base import Detector, DetectorContext
 from privacy_review_agent.models import Confidence, Finding, Severity
-from privacy_review_agent.utils import has_any_token, iter_text_files
+from privacy_review_agent.utils import has_any_token, is_full_line_comment, iter_text_files
 
 LOG_SINK_MARKERS = {
     "console.log",
@@ -33,11 +33,12 @@ class PiiLoggingDetector(Detector):
         findings: list[Finding] = []
         for path, lines in iter_text_files(files):
             for idx, line in enumerate(lines, start=1):
-                low = line.lower()
-                if not has_any_token(low, LOG_SINK_MARKERS):
+                if is_full_line_comment(line):
                     continue
-                if has_any_token(low, SENSITIVE_LOG_MARKERS) or has_any_token(
-                    low, context.settings.sensitive_fields
+                if not has_any_token(line, LOG_SINK_MARKERS):
+                    continue
+                if has_any_token(line, SENSITIVE_LOG_MARKERS) or has_any_token(
+                    line, context.settings.sensitive_fields
                 ):
                     findings.append(
                         Finding(

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from privacy_review_agent.detectors.base import Detector, DetectorContext
 from privacy_review_agent.models import Confidence, Finding, Severity
-from privacy_review_agent.utils import has_any_token, iter_text_files
+from privacy_review_agent.utils import has_any_token, is_full_line_comment, iter_text_files
 
 STATIC_BYPASS_PATTERNS = {
     "if (true)",
@@ -21,9 +21,10 @@ class PolicyBypassDetector(Detector):
         findings: list[Finding] = []
         for path, lines in iter_text_files(files):
             for idx, line in enumerate(lines, start=1):
-                low = line.lower()
-                if has_any_token(low, STATIC_BYPASS_PATTERNS) or has_any_token(
-                    low, context.settings.bypass_markers
+                if is_full_line_comment(line):
+                    continue
+                if has_any_token(line, STATIC_BYPASS_PATTERNS) or has_any_token(
+                    line, context.settings.bypass_markers
                 ):
                     findings.append(
                         Finding(
