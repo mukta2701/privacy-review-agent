@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
+from privacy_review_agent.calibration import CorpusMetrics, score_corpus
 from privacy_review_agent.config import Settings, load_settings
 from privacy_review_agent.detectors import (
     MissingRedactionDetector,
@@ -26,8 +27,16 @@ class CalibrationMetrics:
     tp: int
     fp: int
     unsafe_file_count: int
+    overall_precision: float = 1.0
+    overall_recall: float = 1.0
+    near_miss_precision: float = 1.0
+    near_miss_count: int = 0
+    true_case_count: int = 0
+    known_gap_count: int = 0
+    detectors: dict[str, dict[str, float | int]] = field(default_factory=dict)
+    known_gap_misses: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> dict[str, float | int | bool]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "precision": self.precision,
             "recall": self.recall,
@@ -35,7 +44,27 @@ class CalibrationMetrics:
             "tp": self.tp,
             "fp": self.fp,
             "unsafe_file_count": self.unsafe_file_count,
+            "overall_precision": self.overall_precision,
+            "overall_recall": self.overall_recall,
+            "near_miss_precision": self.near_miss_precision,
+            "near_miss_count": self.near_miss_count,
+            "true_case_count": self.true_case_count,
+            "known_gap_count": self.known_gap_count,
+            "detectors": self.detectors,
+            "known_gap_misses": self.known_gap_misses,
         }
+
+    def gate_failures(self) -> list[str]:
+        failures: list[str] = []
+        if not self.near_miss_precision > 0.90:
+            failures.append(f"near-miss precision {self.near_miss_precision} <= 0.90")
+        if not self.overall_recall >= 0.80:
+            failures.append(f"overall recall {self.overall_recall} < 0.80")
+        if not self.deterministic:
+            failures.append("output is not deterministic")
+        if self.recall != 1.0:
+            failures.append(f"unsafe fixture recall {self.recall} != 1.0")
+        return failures
 
 
 class ReviewEngine:
@@ -121,17 +150,43 @@ class ReviewEngine:
 
         # Deterministic check: same input twice should produce identical fingerprints.
         rerun = self.scan_files(unsafe_files)
-        deterministic = [f.fingerprint for f in unsafe_result.findings] == [
+        stable = [f.fingerprint for f in unsafe_result.findings] == [
             f.fingerprint for f in rerun.findings
         ]
 
+        manifest = fixture_set / "labelled" / "cases.jsonl"
+        if not manifest.is_file():
+            raise FileNotFoundError(f"calibration corpus manifest not found: {manifest}")
+        corpus = score_corpus(self, manifest)
+        return self._combine_metrics(
+            precision, recall, stable, tp, fp, unsafe_file_count, corpus
+        )
+
+    @staticmethod
+    def _combine_metrics(
+        precision: float,
+        recall: float,
+        stable: bool,
+        tp: int,
+        fp: int,
+        unsafe_file_count: int,
+        corpus: CorpusMetrics,
+    ) -> CalibrationMetrics:
         return CalibrationMetrics(
             precision=precision,
             recall=recall,
-            deterministic=deterministic,
+            deterministic=stable and corpus.deterministic,
             tp=tp,
             fp=fp,
             unsafe_file_count=unsafe_file_count,
+            overall_precision=corpus.overall_precision,
+            overall_recall=corpus.overall_recall,
+            near_miss_precision=corpus.near_miss_precision,
+            near_miss_count=corpus.near_miss_count,
+            true_case_count=corpus.true_case_count,
+            known_gap_count=corpus.known_gap_count,
+            detectors=corpus.detectors,
+            known_gap_misses=corpus.known_gap_misses,
         )
 
     def _collect_files(self, root: Path) -> list[Path]:

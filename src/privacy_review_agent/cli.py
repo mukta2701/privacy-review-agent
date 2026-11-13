@@ -149,11 +149,15 @@ def enforce_rerun_approval(required_label: str) -> None:
 @click.option("--fixture-set", type=click.Path(path_type=Path), default=Path("tests/fixtures"))
 def calibrate(fixture_set: Path) -> None:
     engine = ReviewEngine()
-    metrics = engine.run_calibration(fixture_set)
+    try:
+        metrics = engine.run_calibration(fixture_set)
+    except (OSError, ValueError) as exc:
+        click.echo(f"calibration failed: {exc}", err=True)
+        raise SystemExit(1)
     payload = metrics.to_dict()
     click.echo(json.dumps(payload, indent=2, sort_keys=True))
 
-    if payload["precision"] < 0.85 or payload["recall"] < 0.80 or not payload["deterministic"]:
+    if metrics.gate_failures():
         raise SystemExit(2)
 
 
