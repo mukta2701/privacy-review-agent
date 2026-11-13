@@ -109,6 +109,12 @@ flowchart LR
 | `INSUFFICIENT_REDACTION` | Sensitive fields emitted without masking or hashing | `log.write({email: user.email, token: authToken})` |
 | `POLICY_BYPASS` | Consent or privacy checks hard-coded to pass | `if (true) { sendToVendor(data) }` |
 
+Keyword matching is whole-word and identifier-aware: markers match complete
+word parts, so `name` matches `userName` but not `filename`, and `token`
+matches `authToken` but not `max_tokens`. Full-line `#` and `//` comments are
+skipped by the keyword detectors. Secret detection always runs its built-in
+patterns and merges them with gitleaks results when gitleaks is available.
+
 ### Severity Model
 
 ```mermaid
@@ -142,7 +148,7 @@ flowchart LR
 - Python **3.11 or higher**
 - pip
 - git (for diff-mode scanning and the pre-commit hook)
-- Optional: [Gitleaks](https://github.com/gitleaks/gitleaks) binary on your PATH for enhanced secret detection
+- Optional: [Gitleaks](https://github.com/gitleaks/gitleaks) binary on your PATH for enhanced secret detection (regex results are always included and merged with gitleaks findings)
 
 ---
 
