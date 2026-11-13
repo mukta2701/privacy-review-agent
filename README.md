@@ -102,7 +102,7 @@ flowchart LR
 
 | Risk Category | Description | Example |
 |---|---|---|
-| `SECRET_EXPOSURE` | Hardcoded API keys, tokens, passwords in source code | `API_KEY = "…"` (value omitted) |
+| `SECRET_EXPOSURE` | Hardcoded API keys, tokens, passwords in source code | an `API_KEY` value (omitted) |
 | `RAW_PII_LOGGING` | Personal data logged without redaction | `logger.info(…)` with a contact field |
 | `THIRD_PARTY_PII_TRANSFER` | PII sent to an unapproved external endpoint | `requests.post(…)` with a contact field |
 | `PII_IN_MODEL_PROMPT` | Raw personal data passed into an LLM prompt | `f"…"` built from a contact field |
@@ -202,7 +202,7 @@ make demo
 - Severity: `critical`
 - Confidence: `high`
 - Message: Potential hardcoded secret detected
-- Evidence: `API_KEY = "…"` (value omitted)
+- Evidence: an `API_KEY` value (omitted)
 - Remediation: Remove secret from code, rotate credential, move to a secret manager.
 - Fingerprint: `b07ecfb56cf596a9`
 ```
