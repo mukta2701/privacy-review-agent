@@ -237,7 +237,10 @@ privacy-review-agent baseline create --ref HEAD --output .privacy-review-baselin
 
 ### `calibrate` — Validate detection accuracy
 
-Runs the agent against the included safe and unsafe fixtures and checks that precision ≥ 0.85 and recall ≥ 0.80.
+Runs the agent against the included safe and unsafe fixtures plus the
+labelled corpus, and checks the release gate: near-miss precision
+above 0.90, corpus recall at least 0.80 with known gaps excluded,
+deterministic output, and no regression on unsafe fixtures.
 
 ```bash
 privacy-review-agent calibrate --fixture-set tests/fixtures
@@ -419,7 +422,7 @@ make verify
 # Tests only
 make test
 
-# Calibration check (precision ≥ 0.85, recall ≥ 0.80)
+# Calibration check (near-miss precision > 0.90, corpus recall >= 0.80)
 make calibrate
 
 # Scan safe fixtures (expect 0 findings)
@@ -429,7 +432,7 @@ make scan-safe
 make scan-unsafe
 ```
 
-Current calibration results: **precision 1.0, recall 1.0** on included fixtures.
+Current calibration results: **near-miss precision 1.0, corpus recall 1.0, deterministic output, unsafe recall 1.0** on the 193-case labelled corpus.
 
 ---
 
@@ -470,10 +473,11 @@ shiny-invention/
 │       └── prompt_rules.yaml      # LLM prompt risk patterns
 │
 ├── tests/
-│   ├── unit/                   # Per-component unit tests (14 files)
-│   ├── integration/            # End-to-end CLI tests (6 files)
+│   ├── unit/                   # Per-component unit tests
+│   ├── integration/            # End-to-end CLI tests
 │   └── fixtures/
 │       ├── safe/clean.py       # Clean file — expected 0 findings
+│       ├── labelled/cases.jsonl  # Labelled corpus (base64 lines)
 │       └── unsafe/             # Intentionally risky code per category
 │
 ├── docs/
