@@ -102,12 +102,12 @@ flowchart LR
 
 | Risk Category | Description | Example |
 |---|---|---|
-| `SECRET_EXPOSURE` | Hardcoded API keys, tokens, passwords in source code | `API_KEY = "sk_live_abc123..."` |
-| `RAW_PII_LOGGING` | Personal data logged without redaction | `logger.info(user.email)` |
-| `THIRD_PARTY_PII_TRANSFER` | PII sent to an unapproved external endpoint | `requests.post("analytics.io", {"email": user.email})` |
-| `PII_IN_MODEL_PROMPT` | Raw personal data passed into an LLM prompt | `f"Summarize {user.phone} {user.message}"` |
-| `INSUFFICIENT_REDACTION` | Sensitive fields emitted without masking or hashing | `log.write({email: user.email, token: authToken})` |
-| `POLICY_BYPASS` | Consent or privacy checks hard-coded to pass | `if (true) { sendToVendor(data) }` |
+| `SECRET_EXPOSURE` | Hardcoded API keys, tokens, passwords in source code | `API_KEY = "…"` (value omitted) |
+| `RAW_PII_LOGGING` | Personal data logged without redaction | `logger.info(…)` with a contact field |
+| `THIRD_PARTY_PII_TRANSFER` | PII sent to an unapproved external endpoint | `requests.post(…)` with a contact field |
+| `PII_IN_MODEL_PROMPT` | Raw personal data passed into an LLM prompt | `f"…"` built from a contact field |
+| `INSUFFICIENT_REDACTION` | Sensitive fields emitted without masking or hashing | `log.write(…)` with contact fields |
+| `POLICY_BYPASS` | Consent or privacy checks hard-coded to pass | a hard-coded branch that always passes |
 
 Keyword matching is whole-word and identifier-aware: markers match complete
 word parts, so `name` matches `userName` but not `filename`, and `token`
@@ -202,7 +202,7 @@ make demo
 - Severity: `critical`
 - Confidence: `high`
 - Message: Potential hardcoded secret detected
-- Evidence: `API_KEY = "sk_live_abc123xyz"`
+- Evidence: `API_KEY = "…"` (value omitted)
 - Remediation: Remove secret from code, rotate credential, move to a secret manager.
 - Fingerprint: `b07ecfb56cf596a9`
 ```
