@@ -33,7 +33,9 @@ flowchart TD
 
 1. `CLI` (`scan`, `baseline create`, `enforce-rerun-approval`, `calibrate`)
 2. `Engine` (orchestration, dedupe, gating, baseline/suppression handling)
-3. `Detectors` (category-specific scanners)
+3. `Detectors` (category-specific scanners; keyword matching is whole-word and
+   identifier-aware, full-line `#`/`//` comments are skipped, and secrets merge
+   built-in regex results with gitleaks findings)
 4. `Policies` (YAML rule/config packs)
 5. `Reporters` (Markdown, JSON, SARIF outputs)
 6. `CI Workflow` (GitHub Actions integration and enforcement)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -18,14 +19,31 @@ SECRET_PATTERNS = [
 ]
 
 
+def _merge_secret_findings(
+    gitleaks_findings: list[Finding], regex_findings: list[Finding]
+) -> list[Finding]:
+    seen = {
+        (os.path.realpath(finding.file_path), finding.line)
+        for finding in gitleaks_findings
+    }
+    merged = list(gitleaks_findings)
+    merged.extend(
+        finding
+        for finding in regex_findings
+        if (os.path.realpath(finding.file_path), finding.line) not in seen
+    )
+    return sorted(merged, key=lambda finding: (finding.file_path, finding.line, finding.category))
+
+
 class SecretsDetector(Detector):
     name = "secrets"
 
     def scan(self, files: list[Path], context: DetectorContext) -> list[Finding]:
-        findings = self._scan_with_gitleaks(files)
-        if findings:
-            return findings
+        gitleaks_findings = self._scan_with_gitleaks(files)
+        regex_findings = self._scan_with_patterns(files, context)
+        return _merge_secret_findings(gitleaks_findings, regex_findings)
 
+    def _scan_with_patterns(self, files: list[Path], context: DetectorContext) -> list[Finding]:
         out: list[Finding] = []
         for path, lines in iter_text_files(files):
             for idx, line in enumerate(lines, start=1):

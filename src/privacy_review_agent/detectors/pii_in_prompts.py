@@ -4,7 +4,7 @@ from pathlib import Path
 
 from privacy_review_agent.detectors.base import Detector, DetectorContext
 from privacy_review_agent.models import Confidence, Finding, Severity
-from privacy_review_agent.utils import has_any_token, iter_text_files
+from privacy_review_agent.utils import has_any_token, is_full_line_comment, iter_text_files
 
 PROMPT_SINK_MARKERS = {
     "prompt",
@@ -24,15 +24,16 @@ class PiiInPromptsDetector(Detector):
 
         for path, lines in iter_text_files(files):
             for idx, line in enumerate(lines, start=1):
-                low = line.lower()
-                if not has_any_token(low, PROMPT_SINK_MARKERS):
+                if is_full_line_comment(line):
                     continue
-                if not has_any_token(low, all_markers):
+                if not has_any_token(line, PROMPT_SINK_MARKERS):
+                    continue
+                if not has_any_token(line, all_markers):
                     continue
 
                 severity = Severity.HIGH
                 confidence = Confidence.HIGH
-                if any(helper in low for helper in context.settings.redaction_helpers):
+                if any(helper in line.lower() for helper in context.settings.redaction_helpers):
                     severity = Severity.MEDIUM
                     confidence = Confidence.MEDIUM
 
