@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from privacy_review_agent.detectors.base import Detector, DetectorContext
-from privacy_review_agent.models import Confidence, Finding, Severity
+from privacy_review_agent.models import Confidence, EvidenceTier, Finding, Severity
 from privacy_review_agent.utils import (
     has_any_substring,
     has_any_token,
@@ -49,6 +49,7 @@ class MissingRedactionDetector(Detector):
                             "Wrap sensitive fields with approved "
                             "redact/mask/hash/tokenize helpers."
                         ),
+                        tier=EvidenceTier.KEYWORD,
                     )
                 )
         return findings

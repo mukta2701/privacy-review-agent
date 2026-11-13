@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from privacy_review_agent.detectors.base import Detector, DetectorContext
-from privacy_review_agent.models import Confidence, Finding, Severity
+from privacy_review_agent.models import Confidence, EvidenceTier, Finding, Severity
 from privacy_review_agent.utils import (
     extract_domain,
     has_any_token,
@@ -54,6 +54,7 @@ class ThirdPartyTransferDetector(Detector):
                             "Use approved vendor allowlist and "
                             "minimize or redact PII before transfer."
                         ),
+                        tier=EvidenceTier.KEYWORD,
                     )
                 )
         return findings

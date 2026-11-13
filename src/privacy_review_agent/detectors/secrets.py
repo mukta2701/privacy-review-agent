@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 from privacy_review_agent.detectors.base import Detector, DetectorContext
-from privacy_review_agent.models import Confidence, Finding, Severity
+from privacy_review_agent.models import Confidence, EvidenceTier, Finding, Severity
 from privacy_review_agent.utils import iter_text_files
 
 SECRET_PATTERNS = [
@@ -67,6 +67,7 @@ class SecretsDetector(Detector):
                                 "Remove secret from code, rotate credential, "
                                 "and move to approved secret manager."
                             ),
+                            tier=EvidenceTier.CONFIRMED,
                         )
                     )
                     break
@@ -122,6 +123,7 @@ class SecretsDetector(Detector):
                     message=str(entry.get("Description", "Potential secret detected")),
                     evidence=str(entry.get("Match", ""))[:200],
                     remediation="Remove secret from code and rotate credential.",
+                    tier=EvidenceTier.CONFIRMED,
                 )
             )
         return findings

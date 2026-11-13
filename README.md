@@ -58,8 +58,8 @@ flowchart TD
     D --> E[Normalize findings\nGenerate fingerprints]
     E --> F[Check suppressions and baseline]
     F --> G{Blocking finding?}
-    G -- Yes: CRITICAL or HIGH + HIGH confidence --> H[❌ Block commit or CI check\nExit code 2]
-    G -- No: MEDIUM or LOW only --> I[⚠️ Print warnings\nExit code 0]
+    G -- Yes: confirmed tier + CRITICAL/HIGH + HIGH confidence --> H[❌ Block commit or CI check\nExit code 2]
+    G -- No: keyword tier, or MEDIUM or LOW only --> I[⚠️ Print warnings\nExit code 0]
     G -- Clean --> J[✅ Silent pass\nExit code 0]
     H --> K[Developer fixes issue or adds suppression]
     K --> B
@@ -201,6 +201,7 @@ make demo
 ## [BLOCK] SECRET_EXPOSURE — src/config.py:12
 - Severity: `critical`
 - Confidence: `high`
+- Tier: `confirmed`
 - Message: Potential hardcoded secret detected
 - Evidence: an `API_KEY` value (omitted)
 - Remediation: Remove secret from code, rotate credential, move to a secret manager.
@@ -276,14 +277,16 @@ privacy-review-agent scan --path ./src --format sarif > results.sarif
 
 ## Blocking Policy
 
-A finding blocks a commit or CI check only when **all five** conditions are true:
+A finding blocks a commit or CI check only when **all six** conditions are true:
 
 ```mermaid
 flowchart TD
     A{Severity is CRITICAL or HIGH?} -- No --> WARN[⚠️ Warning only]
     A -- Yes --> B{Confidence is HIGH?}
     B -- No --> WARN
-    B -- Yes --> C{Finding is on changed lines?}
+    B -- Yes --> T{Tier is confirmed?\nstructural rule match}
+    T -- No: keyword only --> WARN
+    T -- Yes --> C{Finding is on changed lines?}
     C -- No --> WARN
     C -- Yes --> D{Not in suppression file?}
     D -- No --> WARN
@@ -291,6 +294,14 @@ flowchart TD
     E -- No --> WARN
     E -- Yes --> BLOCK[🚫 Blocked]
 ```
+
+Every finding carries an evidence tier. `confirmed` means a structural rule
+matched — today that is only the secrets detector (built-in credential
+patterns and gitleaks). `keyword` means a sink marker and a sensitive marker
+appeared on the same line — that covers `pii_logging`,
+`third_party_transfer`, `pii_in_prompts`, `missing_redaction` and
+`policy_bypass`. Keyword-tier hits are reported as warnings and never block;
+they stay advisory until a structural rule confirms them in a later phase.
 
 ---
 

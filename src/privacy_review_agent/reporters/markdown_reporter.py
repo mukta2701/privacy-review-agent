@@ -27,6 +27,7 @@ def render(result: ScanResult) -> str:
         )
         lines.append(f"- Severity: `{finding.severity.value}`")
         lines.append(f"- Confidence: `{finding.confidence.value}`")
+        lines.append(f"- Tier: `{finding.tier.value}`")
         lines.append(f"- Message: {finding.message}")
         lines.append(f"- Evidence: `{finding.evidence}`")
         lines.append(f"- Remediation: {finding.remediation}")

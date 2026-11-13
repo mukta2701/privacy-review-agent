@@ -41,6 +41,7 @@ def render(result: ScanResult) -> str:
                     "severity": finding.severity.value,
                     "fingerprint": finding.fingerprint,
                     "blocking": finding.blocking,
+                    "tier": finding.tier.value,
                 },
             }
         )

@@ -19,6 +19,11 @@ class Confidence(str, Enum):
     LOW = "low"
 
 
+class EvidenceTier(str, Enum):
+    CONFIRMED = "confirmed"
+    KEYWORD = "keyword"
+
+
 @dataclass
 class Finding:
     detector: str
@@ -32,6 +37,7 @@ class Finding:
     remediation: str
     fingerprint: str = ""
     blocking: bool = False
+    tier: EvidenceTier = EvidenceTier.KEYWORD
 
     def __post_init__(self) -> None:
         if not self.fingerprint:
@@ -60,6 +66,7 @@ class Finding:
             "remediation": self.remediation,
             "fingerprint": self.fingerprint,
             "blocking": self.blocking,
+            "tier": self.tier.value,
         }
 
 

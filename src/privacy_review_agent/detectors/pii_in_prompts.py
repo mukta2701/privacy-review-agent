@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from privacy_review_agent.detectors.base import Detector, DetectorContext
-from privacy_review_agent.models import Confidence, Finding, Severity
+from privacy_review_agent.models import Confidence, EvidenceTier, Finding, Severity
 from privacy_review_agent.utils import has_any_token, is_full_line_comment, iter_text_files
 
 PROMPT_SINK_MARKERS = {
@@ -48,6 +48,7 @@ class PiiInPromptsDetector(Detector):
                         message="Potential raw personal/quasi-identifier data in LLM prompt",
                         evidence=line.strip()[:200],
                         remediation="Redact/tokenize personal data before prompt construction.",
+                        tier=EvidenceTier.KEYWORD,
                     )
                 )
         return findings

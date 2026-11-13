@@ -15,7 +15,7 @@ from privacy_review_agent.detectors import (
 )
 from privacy_review_agent.detectors.base import Detector, DetectorContext
 from privacy_review_agent.git_diff import changed_files, changed_lines
-from privacy_review_agent.models import Confidence, Finding, ScanResult, Severity
+from privacy_review_agent.models import Confidence, EvidenceTier, Finding, ScanResult, Severity
 from privacy_review_agent.suppressions import is_suppressed, load_suppressions
 
 
@@ -199,6 +199,8 @@ class ReviewEngine:
         return files
 
     def _is_blocking(self, finding: Finding, in_changed_lines: bool) -> bool:
+        if finding.tier is not EvidenceTier.CONFIRMED:
+            return False
         if finding.severity not in {Severity.CRITICAL, Severity.HIGH}:
             return False
         if finding.confidence is not Confidence.HIGH:
