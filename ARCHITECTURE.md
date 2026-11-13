@@ -46,9 +46,12 @@ A finding blocks merge only if all conditions are true:
 
 1. Severity is `critical` or `high`
 2. Confidence is `high`
-3. Finding is on changed PR lines
-4. Not in active suppression
-5. Not in baseline snapshot
+3. Tier is `confirmed` (matched by a structural rule, not a keyword match alone)
+4. Finding is on changed PR lines
+5. Not in active suppression
+6. Not in baseline snapshot
+
+Phase 1 keyword-only hits are advisory until structural rules confirm them.
 
 ## 5) Governance and Controls
 
