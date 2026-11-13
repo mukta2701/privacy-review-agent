@@ -91,7 +91,9 @@ Suppression requirements:
 2. PR-ready Markdown findings with remediation hints
 3. SARIF for security tooling
 4. JSON report artifact (90-day retention in current workflow)
-5. Calibration metrics (precision, recall, determinism)
+5. Calibration metrics (fixture precision and recall, per-detector precision
+   and recall over the labelled corpus scored by the new `calibration` module,
+   determinism)
 
 ## 8) Current Go-Live Blockers
 

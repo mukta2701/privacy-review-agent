@@ -102,12 +102,12 @@ flowchart LR
 
 | Risk Category | Description | Example |
 |---|---|---|
-| `SECRET_EXPOSURE` | Hardcoded API keys, tokens, passwords in source code | `API_KEY = "sk_live_abc123..."` |
-| `RAW_PII_LOGGING` | Personal data logged without redaction | `logger.info(user.email)` |
-| `THIRD_PARTY_PII_TRANSFER` | PII sent to an unapproved external endpoint | `requests.post("analytics.io", {"email": user.email})` |
-| `PII_IN_MODEL_PROMPT` | Raw personal data passed into an LLM prompt | `f"Summarize {user.phone} {user.message}"` |
-| `INSUFFICIENT_REDACTION` | Sensitive fields emitted without masking or hashing | `log.write({email: user.email, token: authToken})` |
-| `POLICY_BYPASS` | Consent or privacy checks hard-coded to pass | `if (true) { sendToVendor(data) }` |
+| `SECRET_EXPOSURE` | Hardcoded API keys, tokens, passwords in source code | an `API_KEY` value (omitted) |
+| `RAW_PII_LOGGING` | Personal data logged without redaction | `logger.info(…)` with a contact field |
+| `THIRD_PARTY_PII_TRANSFER` | PII sent to an unapproved external endpoint | `requests.post(…)` with a contact field |
+| `PII_IN_MODEL_PROMPT` | Raw personal data passed into an LLM prompt | `f"…"` built from a contact field |
+| `INSUFFICIENT_REDACTION` | Sensitive fields emitted without masking or hashing | `log.write(…)` with contact fields |
+| `POLICY_BYPASS` | Consent or privacy checks hard-coded to pass | a hard-coded branch that always passes |
 
 Keyword matching is whole-word and identifier-aware: markers match complete
 word parts, so `name` matches `userName` but not `filename`, and `token`
@@ -202,7 +202,7 @@ make demo
 - Severity: `critical`
 - Confidence: `high`
 - Message: Potential hardcoded secret detected
-- Evidence: `API_KEY = "sk_live_abc123xyz"`
+- Evidence: an `API_KEY` value (omitted)
 - Remediation: Remove secret from code, rotate credential, move to a secret manager.
 - Fingerprint: `b07ecfb56cf596a9`
 ```
@@ -237,7 +237,10 @@ privacy-review-agent baseline create --ref HEAD --output .privacy-review-baselin
 
 ### `calibrate` — Validate detection accuracy
 
-Runs the agent against the included safe and unsafe fixtures and checks that precision ≥ 0.85 and recall ≥ 0.80.
+Runs the agent against the included safe and unsafe fixtures plus the
+labelled corpus, and checks the release gate: near-miss precision
+above 0.90, corpus recall at least 0.80 with known gaps excluded,
+deterministic output, and no regression on unsafe fixtures.
 
 ```bash
 privacy-review-agent calibrate --fixture-set tests/fixtures
@@ -419,7 +422,7 @@ make verify
 # Tests only
 make test
 
-# Calibration check (precision ≥ 0.85, recall ≥ 0.80)
+# Calibration check (near-miss precision > 0.90, corpus recall >= 0.80)
 make calibrate
 
 # Scan safe fixtures (expect 0 findings)
@@ -429,7 +432,7 @@ make scan-safe
 make scan-unsafe
 ```
 
-Current calibration results: **precision 1.0, recall 1.0** on included fixtures.
+Current calibration results: **near-miss precision 1.0, corpus recall 1.0, deterministic output, unsafe recall 1.0** on the 193-case labelled corpus.
 
 ---
 
@@ -470,10 +473,11 @@ shiny-invention/
 │       └── prompt_rules.yaml      # LLM prompt risk patterns
 │
 ├── tests/
-│   ├── unit/                   # Per-component unit tests (14 files)
-│   ├── integration/            # End-to-end CLI tests (6 files)
+│   ├── unit/                   # Per-component unit tests
+│   ├── integration/            # End-to-end CLI tests
 │   └── fixtures/
 │       ├── safe/clean.py       # Clean file — expected 0 findings
+│       ├── labelled/cases.jsonl  # Labelled corpus (base64 lines)
 │       └── unsafe/             # Intentionally risky code per category
 │
 ├── docs/
