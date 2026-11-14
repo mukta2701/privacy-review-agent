@@ -1,0 +1,126 @@
+# Sinks are framework redirects and Flask link generation: any tainted
+# argument counts (positional or keyword). `flask.redirect(...)` and
+# `flask.url_for(...)` match anywhere; bare `redirect(...)` only counts when
+# the file imports `redirect` from `flask` or `django.shortcuts` before the
+# call, bare `url_for(...)` only with `url_for` from `flask`, bare
+# `HttpResponseRedirect(...)` / `HttpResponsePermanentRedirect(...)` only
+# with that name from `django.http`, and bare `RedirectResponse(...)` only
+# with that name from `starlette.responses` or `fastapi.responses`, so an
+# unrelated in-house helper does not block. Same-named local helpers,
+# imports from unrelated modules and calls preceding the qualifying import
+# are not sinks. Sources, the explicit suffix allowlist and sanitisers are
+# copied unchanged from `python-pii-in-tool-result` (and so from
+# `python-pii-to-telemetry`): no new names, no loosened boundaries.
+# Single-function taint mode, our rules only.
+rules:
+- id: python-pii-in-url
+  languages:
+  - python
+  severity: WARNING
+  message: Personal data placed in a redirect URL or generated link without redaction
+  metadata:
+    category: PII_IN_URL
+    severity: high
+    confidence: high
+    remediation: Pass an opaque id or token instead of personal data in redirect URLs and generated links, or send the data in a POST body.
+  mode: taint
+  pattern-sources:
+  - patterns:
+    - pattern: $OBJ.$FIELD
+    - metavariable-regex:
+        metavariable: $FIELD
+        regex: '[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*'
+    - &id001
+      pattern-not-inside:
+        pattern-either:
+        - pattern: $Y is None
+        - pattern: $Y is not None
+        - pattern: $Y == $Z
+        - pattern: $Y != $Z
+        - pattern: $Y in $Z
+        - pattern: $Y not in $Z
+  - patterns:
+    - pattern: $DICT[$KEY]
+    - metavariable-regex:
+        metavariable: $KEY
+        regex: \A(?![\s\S]*\s)[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+    - *id001
+  - patterns:
+    - pattern: $X
+    - metavariable-regex:
+        metavariable: $X
+        regex: \A(?=[A-Za-z_][A-Za-z0-9_]*\Z)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+    - pattern-not-inside: email.$ATTR
+    - *id001
+  - pattern-either:
+    - pattern: req.body
+    - pattern: request.body
+    - pattern: req.headers
+    - pattern: request.headers
+  pattern-sinks:
+  - pattern-either:
+    - pattern: flask.redirect(...)
+    - pattern: flask.url_for(...)
+  - patterns:
+    - pattern: redirect(...)
+    - pattern-either:
+      - pattern-inside: 'from flask import redirect
+
+          ...
+
+          '
+      - pattern-inside: 'from django.shortcuts import redirect
+
+          ...
+
+          '
+  - patterns:
+    - pattern: url_for(...)
+    - pattern-inside: 'from flask import url_for
+
+        ...
+
+        '
+  - patterns:
+    - pattern: HttpResponseRedirect(...)
+    - pattern-inside: 'from django.http import HttpResponseRedirect
+
+        ...
+
+        '
+  - patterns:
+    - pattern: HttpResponsePermanentRedirect(...)
+    - pattern-inside: 'from django.http import HttpResponsePermanentRedirect
+
+        ...
+
+        '
+  - patterns:
+    - pattern: RedirectResponse(...)
+    - pattern-either:
+      - pattern-inside: 'from starlette.responses import RedirectResponse
+
+          ...
+
+          '
+      - pattern-inside: 'from fastapi.responses import RedirectResponse
+
+          ...
+
+          '
+  pattern-sanitizers:
+  - pattern-either:
+    - pattern: redact(...)
+    - pattern: $U.redact(...)
+    - pattern: mask(...)
+    - pattern: $U.mask(...)
+    - pattern: hash(...)
+    - pattern: $U.hash(...)
+    - pattern: tokenize(...)
+    - pattern: $U.tokenize(...)
+    - pattern: len(...)
+    - pattern: $U.len(...)
+    - pattern: bool(...)
+    - pattern: $U.bool(...)
+    - pattern: type(...)
+    - pattern: $U.type(...)
