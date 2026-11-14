@@ -85,7 +85,7 @@ def test_calibrate_passes_on_default_set():
     runner = CliRunner()
     result = runner.invoke(main, ["calibrate"])
     assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
+    payload = json.loads(result.stdout)
     for key in (
         "precision",
         "recall",

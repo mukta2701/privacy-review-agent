@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from privacy_review_agent.detectors import (
     PiiLoggingDetector,
     PolicyBypassDetector,
     SecretsDetector,
+    SemgrepDetector,
     ThirdPartyTransferDetector,
 )
 from privacy_review_agent.detectors.base import Detector, DetectorContext
@@ -35,6 +37,23 @@ def _read_lines(file_path: str) -> list[str] | None:
         return Path(file_path).read_text(encoding="utf-8", errors="ignore").splitlines()
     except OSError:
         return None
+
+
+def _drop_shadowed_keywords(findings: list[Finding]) -> list[Finding]:
+    structural = {
+        (os.path.realpath(finding.file_path), finding.line, finding.category)
+        for finding in findings
+        if finding.detector == "semgrep"
+    }
+    if not structural:
+        return findings
+    return [
+        finding
+        for finding in findings
+        if finding.tier is not EvidenceTier.KEYWORD
+        or (os.path.realpath(finding.file_path), finding.line, finding.category)
+        not in structural
+    ]
 
 
 @dataclass
@@ -95,6 +114,7 @@ class ReviewEngine:
             PiiInPromptsDetector(),
             MissingRedactionDetector(),
             PolicyBypassDetector(),
+            SemgrepDetector(),
         ]
 
     def scan_ref(
@@ -130,6 +150,8 @@ class ReviewEngine:
         findings: list[Finding] = []
         for detector in self.detectors:
             findings.extend(detector.scan(files, context))
+
+        findings = _drop_shadowed_keywords(findings)
 
         deduped_legacy: dict[str, Finding] = {}
         for finding in findings:
