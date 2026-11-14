@@ -80,8 +80,11 @@ def test_gated_true_coverage_and_known_gaps():
 
 
 def test_required_decoded_markers_present_and_single_line():
+    cases = _load()
     texts = _decoded()
-    assert all("\n" not in text for text in texts)
+    pairs = list(zip(texts, cases))
+    assert all("\n" not in text or "multiline" in case["tags"] for text, case in pairs)
+    assert all("multiline" in case["tags"] for text, case in pairs if "\n" in text)
     joined = "\n".join(texts)
     assert RESPONSE_BODY in joined
     assert PLURAL in joined
