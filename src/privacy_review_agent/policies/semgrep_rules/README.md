@@ -30,31 +30,30 @@ function and as a method), and the `metavariable-regex` alternation holds
 the sensitive names with identifier-part boundaries (snake_case, camelCase,
 attribute and key forms, like the keyword detector).
 
-The names come from `policies/sensitive_fields.yaml`, minus entries too
-generic for a blocking finding: standalone `name`, `message` and `body`
-are excluded, as are the identifier-only `user_id` and `customer_id`.
-Plurals (`emails`, `tokens`) and run-together lowercase (`useremail`,
-`accesstoken`) do not match, so the existing `kg-*` known gaps stay gaps.
+Only unambiguous personal data blocks: `email`, `phone`, `first_name`,
+`last_name` and `ssn`, plus raw request bodies and headers (`req.body`,
+`request.body`, `req.headers`, `request.headers`), which stay explicit
+sources. Everything else from `policies/sensitive_fields.yaml` is out
+because ordinary code kept matching it; the keyword detector still flags
+those advisory. Dropped: standalone `name`, `message`, `body`; the
+identifier-only `user_id`, `customer_id`; `upload`, `chat`, `location`,
+`lat`, `lon`, standalone `headers`; and `token`, `address`, `cookie`,
+`transcript`, `passport`, `authorization` (lexer tokens, network addresses,
+design cookies, library sessions and the like). Plurals (`emails`) and
+run-together lowercase (`useremail`) do not match, so the existing `kg-*`
+known gaps stay gaps.
 
-Dropped after probing ordinary code (a bare or qualified use still matched,
-so the name is out; the keyword detector still flags these advisory):
-`upload` (`upload.id`, `upload_dir`), `chat` (`chat.id`), `location`
-(`file.location`), `lat`/`lon` (bare coordinates in telemetry), standalone
-`headers` (`response.headers`), `token` (lexer/parser tokens, `token.type`,
-`token.name`), `address` (network addresses, `server.address`, `mac_address`),
-`cookie` (`cookie.max_age`), `transcript` (`transcript.id`), `passport`
-(the passport.js library, `passport.session`) and `authorization`
-(`authorization.status_code`). Raw request bodies and headers (`req.body`,
-`request.body`, `req.headers`, `request.headers`) stay explicit sources.
-
-Kept: `email`, `phone`, `first_name`, `last_name` and `ssn`. A name ends
-before a `_suffix` or a camelCase hump, so `user.phone_number`,
-`user.phoneNumber`, `user.ssn_last4` and `user.emailVerified` match, while
-plurals (`emails`) and run-together lowercase (`useremail`) do not.
-A bare name used as a module object (`email.utils.formatdate()`) is not a
-source, and neither are values merely derived from a sensitive name:
-`len()`/`bool()` (`Boolean()` in JS/TS) sanitise, and `is None` /
-`is not None` (`==`/`!=`/`===`/`!==` `null`) comparisons do not taint.
+Attribute and key names must start with the sensitive name; explicitly
+allowed suffixes are `_number`/`Number` (phone, email), `_last4`/`Last4`
+(ssn, email), `_verified`/`Verified` and `_address`/`Address` (email), so
+`user.phone_number`, `user.ssn_last4`, `user.emailVerified` and
+`user.email_address` match while `email_count`, `settings.EMAIL_HOST`,
+`ssn_pattern` and `phone_type` do not. A bare `email` used as a module
+object (`email.utils.formatdate()`) is not a source. Values merely derived
+from a sensitive name do not block either: `len()`/`bool()`/`type()`
+(`Boolean()` and `.length` in JS/TS) sanitise, and `is None` / `is not None` /
+`==` / `!=` / `in` (`==` / `!=` / `===` / `!==`) comparisons and `typeof` do
+not taint.
 
 Sanitisers are the approved redaction helpers from
 `policies/redaction_rules.yaml` (`redact`, `mask`, `hash`, `tokenize`):

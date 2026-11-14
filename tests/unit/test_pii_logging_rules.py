@@ -25,9 +25,13 @@ DROPPED_NAMES = ("upload", "upload_dir", "chat", "location", "lat", "lon",
                  "user.token", "access_token", "address", "server.address",
                  "cookie", "cookie.max_age", "transcript", "transcript.id",
                  "passport", "passport.id", "authorization",
-                 "authorization.status_code")
-SUFFIXED_NAMES = ("token_count", "upload_dir", "cookie_policy", "tokens",
-                  "emails", "useremail", "accesstoken")
+                 "authorization.status_code", "email_count", "email_template",
+                 "email_service", "EMAIL_HOST", "settings.EMAIL_HOST",
+                 "phone_type", "phone_count", "ssn_pattern", "ssn_validator",
+                 "PHONE_RE", "first_name_field", "first_name_column",
+                 "last_name_index", "email_regex.pattern", "user.email_count",
+                 "user.email_domain", "user.has_phone")
+SUFFIXED_NAMES = ("tokens", "emails", "useremail", "accesstoken")
 KEBAB_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
@@ -133,9 +137,10 @@ def test_dropped_and_suffixed_names_do_not_match():
         assert not any(
             re.fullmatch(pattern, dropped) for pattern in regexes
         ), dropped
-    for control in ("user.phone_number", "user.phoneNumber", "phoneNumber",
-                    "user.ssn_last4", "user.emailVerified", "email.count",
-                    "user.lastName", 'data["email"]'):
+    for control in ("user.email", "user_email", "userEmail", 'data["email"]',
+                    "user.phone_number", "phoneNumber", "user.ssn_last4",
+                    "emailVerified", "user.emailVerified", "email_address",
+                    "user.email_address", "user.lastName", "user.firstName"):
         assert any(
             re.fullmatch(pattern, control) for pattern in regexes
         ), control
