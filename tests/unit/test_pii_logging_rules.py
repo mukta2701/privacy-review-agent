@@ -20,6 +20,10 @@ PACK = Path("src/privacy_review_agent/policies/semgrep_rules")
 
 GENERIC_NAMES = ("name", "message", "body")
 SENSITIVE_CONTROLS = ("user_email", "userEmail", "user.email")
+DROPPED_NAMES = ("upload", "upload_dir", "chat", "location", "lat", "lon",
+                 "headers", "response.headers")
+SUFFIXED_NAMES = ("token_count", "upload_dir", "cookie_policy", "tokens",
+                  "emails", "useremail", "accesstoken")
 KEBAB_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
@@ -112,6 +116,20 @@ def test_generic_names_are_not_standalone_sensitive_names():
             re.fullmatch(pattern, generic) for pattern in regexes
         ), generic
     for control in SENSITIVE_CONTROLS:
+        assert any(
+            re.fullmatch(pattern, control) for pattern in regexes
+        ), control
+
+
+def test_dropped_and_suffixed_names_do_not_match():
+    regexes = _metavariable_regexes()
+    assert regexes
+
+    for dropped in DROPPED_NAMES + SUFFIXED_NAMES:
+        assert not any(
+            re.fullmatch(pattern, dropped) for pattern in regexes
+        ), dropped
+    for control in ("auth_token", "user.token", "userEmail", "access_token"):
         assert any(
             re.fullmatch(pattern, control) for pattern in regexes
         ), control
