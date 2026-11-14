@@ -68,6 +68,12 @@ NEAR_MISS_BLOCKS: list[str] = [
     "    def _inner():\n"
     "        return user.email\n"
     "    return 1",
+    "@mcp.tool()\n"
+    "def _g18():\n"
+    "    @functools.wraps(action)\n"
+    "    def _inner():\n"
+    "        return user.email\n"
+    "    return 1",
     "@tool\ndef _g13():\n    return user.email",
     "from mylib import tool\n\n@tool\ndef _g14():\n    return user.email",
     "@registry.tool\ndef _g15():\n    return user.email",

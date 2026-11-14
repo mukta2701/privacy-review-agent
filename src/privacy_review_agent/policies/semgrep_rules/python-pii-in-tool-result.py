@@ -163,6 +163,17 @@ def nested_silent_tool():
 
 
 @mcp.tool
+def wrapped_silent_tool():
+    @functools.wraps(action)
+    def inner():
+        # ok: python-pii-in-tool-result
+        return user.email
+
+    # ok: python-pii-in-tool-result
+    return 1
+
+
+@mcp.tool
 def internal_use_tool():
     send(user.email)
     # ok: python-pii-in-tool-result

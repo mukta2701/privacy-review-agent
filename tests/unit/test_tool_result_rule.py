@@ -111,11 +111,16 @@ def _rule_code() -> str:
 
 
 def test_no_unqualified_tool_or_receiver_sink():
-    text = _rule_code()
+    lines = _rule_code().splitlines()
+    text = "\n".join(lines)
 
     assert "$X.tool" not in text
-    assert "@tool" not in text
-    assert "@mcp.tool" not in text
+    assert "@$D2" not in text
+    # Literal decorator forms are allowed only as `pattern-not` lines that
+    # keep a nested tool function a sink; a sink itself is always `@$D`.
+    for line in lines:
+        if "@tool" in line or "@mcp.tool" in line or "@function_tool" in line:
+            assert "pattern-not:" in line, line
     # The bare-`tool` decorator alternative is only meaningful together
     # with the LangChain import gate in the same file.
     assert "\\Atool\\Z" in text

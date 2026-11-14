@@ -77,10 +77,18 @@ rules:
         - pattern-either:
           - pattern: "def $G(...):\n  ...\n"
           - pattern: "async def $G(...):\n  ...\n"
-        - pattern-not: "@$D2\ndef $G(...):\n  ...\n"
-        - pattern-not: "@$D2(...)\ndef $G(...):\n  ...\n"
-        - pattern-not: "@$D2\nasync def $G(...):\n  ...\n"
-        - pattern-not: "@$D2(...)\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@mcp.tool\ndef $G(...):\n  ...\n"
+        - pattern-not: "@mcp.tool\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@mcp.tool(...)\ndef $G(...):\n  ...\n"
+        - pattern-not: "@mcp.tool(...)\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@function_tool\ndef $G(...):\n  ...\n"
+        - pattern-not: "@function_tool\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@function_tool(...)\ndef $G(...):\n  ...\n"
+        - pattern-not: "@function_tool(...)\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@tool\ndef $G(...):\n  ...\n"
+        - pattern-not: "@tool\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@tool(...)\ndef $G(...):\n  ...\n"
+        - pattern-not: "@tool(...)\nasync def $G(...):\n  ...\n"
   - patterns:
     - pattern: return $X
     - pattern-either:
@@ -112,10 +120,18 @@ rules:
         - pattern-either:
           - pattern: "def $G(...):\n  ...\n"
           - pattern: "async def $G(...):\n  ...\n"
-        - pattern-not: "@$D2\ndef $G(...):\n  ...\n"
-        - pattern-not: "@$D2(...)\ndef $G(...):\n  ...\n"
-        - pattern-not: "@$D2\nasync def $G(...):\n  ...\n"
-        - pattern-not: "@$D2(...)\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@mcp.tool\ndef $G(...):\n  ...\n"
+        - pattern-not: "@mcp.tool\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@mcp.tool(...)\ndef $G(...):\n  ...\n"
+        - pattern-not: "@mcp.tool(...)\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@function_tool\ndef $G(...):\n  ...\n"
+        - pattern-not: "@function_tool\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@function_tool(...)\ndef $G(...):\n  ...\n"
+        - pattern-not: "@function_tool(...)\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@tool\ndef $G(...):\n  ...\n"
+        - pattern-not: "@tool\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@tool(...)\ndef $G(...):\n  ...\n"
+        - pattern-not: "@tool(...)\nasync def $G(...):\n  ...\n"
   pattern-sanitizers:
   - pattern-either:
     - pattern: redact(...)
