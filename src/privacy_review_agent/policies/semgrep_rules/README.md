@@ -39,18 +39,22 @@ Plurals (`emails`, `tokens`) and run-together lowercase (`useremail`,
 Dropped after probing ordinary code (a bare or qualified use still matched,
 so the name is out; the keyword detector still flags these advisory):
 `upload` (`upload.id`, `upload_dir`), `chat` (`chat.id`), `location`
-(`file.location`), `lat`/`lon` (bare coordinates in telemetry), and
-standalone `headers` (`response.headers`). Raw request bodies and headers
-(`req.body`, `request.body`, `req.headers`, `request.headers`) stay explicit
-sources.
+(`file.location`), `lat`/`lon` (bare coordinates in telemetry), standalone
+`headers` (`response.headers`), `token` (lexer/parser tokens, `token.type`,
+`token.name`), `address` (network addresses, `server.address`, `mac_address`),
+`cookie` (`cookie.max_age`), `transcript` (`transcript.id`), `passport`
+(the passport.js library, `passport.session`) and `authorization`
+(`authorization.status_code`). Raw request bodies and headers (`req.body`,
+`request.body`, `req.headers`, `request.headers`) stay explicit sources.
 
-Kept: `email`, `phone`, `first_name`, `last_name`, `address`, `ssn`,
-`passport`, `cookie`, `token`, `authorization` and `transcript`. A leading
-`_` still separates (`user_email`, `access_token`), but a trailing `_` or
-alnum ends the name, so `token_count`, `upload_dir` and `cookie_policy` do
-not match. An exact `token` (or `authToken`, `user.token`) still blocks: it
-is credential-like often enough to warrant a blocking finding, while
-suffixed and plural forms stay silent.
+Kept: `email`, `phone`, `first_name`, `last_name` and `ssn`. A name ends
+before a `_suffix` or a camelCase hump, so `user.phone_number`,
+`user.phoneNumber`, `user.ssn_last4` and `user.emailVerified` match, while
+plurals (`emails`) and run-together lowercase (`useremail`) do not.
+A bare name used as a module object (`email.utils.formatdate()`) is not a
+source, and neither are values merely derived from a sensitive name:
+`len()`/`bool()` (`Boolean()` in JS/TS) sanitise, and `is None` /
+`is not None` (`==`/`!=`/`===`/`!==` `null`) comparisons do not taint.
 
 Sanitisers are the approved redaction helpers from
 `policies/redaction_rules.yaml` (`redact`, `mask`, `hash`, `tokenize`):

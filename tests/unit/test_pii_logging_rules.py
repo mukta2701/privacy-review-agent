@@ -21,7 +21,11 @@ PACK = Path("src/privacy_review_agent/policies/semgrep_rules")
 GENERIC_NAMES = ("name", "message", "body")
 SENSITIVE_CONTROLS = ("user_email", "userEmail", "user.email")
 DROPPED_NAMES = ("upload", "upload_dir", "chat", "location", "lat", "lon",
-                 "headers", "response.headers")
+                 "headers", "response.headers", "token", "authToken",
+                 "user.token", "access_token", "address", "server.address",
+                 "cookie", "cookie.max_age", "transcript", "transcript.id",
+                 "passport", "passport.id", "authorization",
+                 "authorization.status_code")
 SUFFIXED_NAMES = ("token_count", "upload_dir", "cookie_policy", "tokens",
                   "emails", "useremail", "accesstoken")
 KEBAB_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
@@ -129,7 +133,22 @@ def test_dropped_and_suffixed_names_do_not_match():
         assert not any(
             re.fullmatch(pattern, dropped) for pattern in regexes
         ), dropped
-    for control in ("auth_token", "user.token", "userEmail", "access_token"):
+    for control in ("user.phone_number", "user.phoneNumber", "phoneNumber",
+                    "user.ssn_last4", "user.emailVerified", "email.count",
+                    "user.lastName", 'data["email"]'):
         assert any(
             re.fullmatch(pattern, control) for pattern in regexes
         ), control
+
+
+def test_wrapper_sanitisers_appear_in_the_rule_yaml():
+    texts = {
+        path.name: path.read_text(encoding="utf-8")
+        for path in sorted(PACK.glob("*.yaml")) + sorted(PACK.glob("*.yml"))
+    }
+
+    assert re.search(r"(?<![A-Za-z0-9_])len(?![A-Za-z0-9_])", texts["python-raw-pii-logging.yaml"])
+    assert re.search(r"(?<![A-Za-z0-9_])bool(?![A-Za-z0-9_])", texts["python-raw-pii-logging.yaml"])
+    assert re.search(
+        r"(?<![A-Za-z0-9_])Boolean(?![A-Za-z0-9_])", texts["js-ts-raw-pii-logging.yaml"]
+    )
