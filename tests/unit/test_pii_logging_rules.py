@@ -35,13 +35,6 @@ SUFFIXED_NAMES = ("tokens", "emails", "useremail", "accesstoken")
 KEBAB_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
-def _yaml_texts() -> list[str]:
-    return [
-        path.read_text(encoding="utf-8")
-        for path in sorted(PACK.glob("*.yaml")) + sorted(PACK.glob("*.yml"))
-    ]
-
-
 def _rule_docs() -> list[dict]:
     docs = []
     for path in sorted(PACK.glob("*.yaml")) + sorted(PACK.glob("*.yml")):
@@ -98,6 +91,7 @@ def test_rule_metadata_is_valid_and_confirmed_blocking():
         "python-pii-to-telemetry": "THIRD_PARTY_PII_TRANSFER",
         "python-pii-in-tool-result": "PII_IN_MODEL_PROMPT",
         "python-pii-in-url": "PII_IN_URL",
+        "python-pii-schema-field": "PII_SCHEMA_FIELD",
     }
 
     assert check_rule_metadata(PACK) == []
@@ -105,7 +99,10 @@ def test_rule_metadata_is_valid_and_confirmed_blocking():
         assert rule.metadata["category"] == expected_categories.get(
             rule.id, "RAW_PII_LOGGING"
         )
-        assert rule.metadata["severity"] == "high"
+        if rule.id == "python-pii-schema-field":
+            assert rule.metadata["severity"] == "medium"
+        else:
+            assert rule.metadata["severity"] == "high"
         assert rule.metadata["confidence"] == "high"
         assert rule.metadata["remediation"].strip()
 
@@ -113,7 +110,12 @@ def test_rule_metadata_is_valid_and_confirmed_blocking():
 def test_each_rule_mentions_every_redaction_helper():
     settings = load_settings()
     assert settings.redaction_helpers == {"redact", "mask", "hash", "tokenize"}
-    texts = _yaml_texts()
+    # The schema-field rule is structural, not taint: it names no sanitisers.
+    texts = [
+        path.read_text(encoding="utf-8")
+        for path in sorted(PACK.glob("*.yaml")) + sorted(PACK.glob("*.yml"))
+        if path.name != "python-pii-schema-field.yaml"
+    ]
     assert len(texts) >= 2
 
     for text in texts:

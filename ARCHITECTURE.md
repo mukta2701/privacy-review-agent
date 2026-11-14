@@ -50,9 +50,12 @@ flowchart TD
    error-tracking and analytics SDKs as blocking
    `THIRD_PARTY_PII_TRANSFER`, and `python-pii-in-tool-result`, which
    reports personal data returned from an agent or MCP tool as blocking
-   `PII_IN_MODEL_PROMPT`, and `python-pii-in-url`, which reports personal
+   `PII_IN_MODEL_PROMPT`, `python-pii-in-url`, which reports personal
    data placed in a framework redirect URL or a generated link as blocking
-   `PII_IN_URL`)
+   `PII_IN_URL`, and `python-pii-schema-field`, which reports a Django
+   model or migration field (`AddField`, `CreateModel`) whose name is
+   personal data, or whose type is `EmailField`, as medium, non-blocking
+   `PII_SCHEMA_FIELD`)
 4. `Policies` (YAML rule/config packs)
 5. `Reporters` (Markdown, JSON, SARIF outputs)
 6. `CI Workflow` (GitHub Actions integration and enforcement)
