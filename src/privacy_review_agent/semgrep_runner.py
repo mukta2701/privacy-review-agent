@@ -44,6 +44,11 @@ class SemgrepMatch:
     line: int
     message: str
     metadata: dict[str, Any]
+    col: int = 0
+    end_line: int = 0
+    end_col: int = 0
+    offset: int = 0
+    end_offset: int = 0
 
 
 def load_rules(rules_dir: Path | None) -> list[SemgrepRule]:
@@ -110,6 +115,11 @@ def metadata_problem(metadata: Any, categories: set[str]) -> str | None:
     return None
 
 
+def _as_int(value: Any) -> int:
+    """Coerce a Semgrep position field to `int`, defaulting to 0."""
+    return value if isinstance(value, int) and value >= 0 else 0
+
+
 def _target_arg(path: Path) -> str:
     """Render a scan target so it can never parse as an option."""
     text = os.fspath(path)
@@ -164,6 +174,8 @@ def run_semgrep(files: list[Path], rules_dir: Path) -> list[SemgrepMatch]:
         line = start.get("line", 0) if isinstance(start, dict) else 0
         if not isinstance(line, int) or line < 1:
             continue
+        end = entry.get("end", {})
+        end = end if isinstance(end, dict) else {}
         extra = entry.get("extra", {})
         extra = extra if isinstance(extra, dict) else {}
         metadata = extra.get("metadata") or {}
@@ -174,6 +186,11 @@ def run_semgrep(files: list[Path], rules_dir: Path) -> list[SemgrepMatch]:
                 line=line,
                 message=str(extra.get("message", "")),
                 metadata=metadata if isinstance(metadata, dict) else {},
+                col=_as_int(start.get("col")),
+                end_line=_as_int(end.get("line")),
+                end_col=_as_int(end.get("col")),
+                offset=_as_int(start.get("offset")),
+                end_offset=_as_int(end.get("offset")),
             )
         )
     matches.sort(key=lambda match: (match.path, match.rule_id, match.line))

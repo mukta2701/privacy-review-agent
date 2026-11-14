@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import ast
 import os
 import shutil
+from collections.abc import Collection
 from pathlib import Path
 
 import click
@@ -10,17 +12,65 @@ from privacy_review_agent.detectors.base import Detector, DetectorContext
 from privacy_review_agent.models import Confidence, EvidenceTier, Finding, Severity
 from privacy_review_agent.semgrep_runner import (
     SemgrepFailed,
+    SemgrepMatch,
     SemgrepNotInstalled,
     load_rules,
     metadata_problem,
     run_semgrep,
     taxonomy_categories,
 )
+from privacy_review_agent.utils import extract_domain
 
 MISSING_NOTICE = (
     "Semgrep structural rules were skipped: the `semgrep` binary is not on PATH. "
     "Install it with `pip install 'privacy-review-agent[semgrep]'` to enable them."
 )
+
+TRANSFER_RULE_ID = "python-pii-to-third-party"
+
+
+def _transfer_url_argument(call: ast.Call) -> ast.expr | None:
+    """Return the URL argument of a transfer call, if one is present.
+
+    The `url=` keyword wins when present; otherwise the first positional
+    argument, or the second one for `.request(...)` (whose first argument
+    is the HTTP method).
+    """
+    for keyword in call.keywords:
+        if keyword.arg == "url":
+            return keyword.value
+    func = call.func
+    name = func.attr if isinstance(func, ast.Attribute) else ""
+    index = 1 if name == "request" else 0
+    if len(call.args) > index:
+        return call.args[index]
+    return None
+
+
+def is_allowlisted_transfer(
+    match: SemgrepMatch, file_text: str, allowlist: Collection[str]
+) -> bool:
+    """Whether a third-party-transfer match hits an allowlisted vendor.
+
+    Reads the call text from the file using the match span and drops the
+    finding only when the URL argument is a plain string literal whose host
+    is in the allowlist. Anything else (non-literal URL, unlisted host,
+    literal without a scheme, unparseable span, another rule) is reported.
+    """
+    if match.rule_id != TRANSFER_RULE_ID:
+        return False
+    try:
+        tree = ast.parse(file_text[match.offset : match.end_offset])
+    except (SyntaxError, ValueError):
+        return False
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+    if not calls:
+        return False
+    url = _transfer_url_argument(calls[0])
+    if not isinstance(url, ast.Constant) or not isinstance(url.value, str):
+        return False
+    domain = extract_domain(url.value)
+    return bool(domain) and domain in allowlist
 
 
 class SemgrepDetector(Detector):
@@ -71,8 +121,13 @@ class SemgrepDetector(Detector):
             if problem is not None:
                 self._notify(f"Semgrep rule {match.rule_id} skipped: {problem}.")
                 continue
-            lines = _read_lines(by_realpath[real])
-            if lines is None or match.line > len(lines):
+            text = _read_text(by_realpath[real])
+            if text is None:
+                continue
+            lines = text.splitlines()
+            if match.line > len(lines):
+                continue
+            if is_allowlisted_transfer(match, text, context.settings.vendor_allowlist):
                 continue
             findings.append(
                 Finding(
@@ -91,8 +146,8 @@ class SemgrepDetector(Detector):
         return sorted(findings, key=lambda finding: (finding.file_path, finding.line))
 
 
-def _read_lines(file_path: str) -> list[str] | None:
+def _read_text(file_path: str) -> str | None:
     try:
-        return Path(file_path).read_text(encoding="utf-8", errors="ignore").splitlines()
+        return Path(file_path).read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return None
