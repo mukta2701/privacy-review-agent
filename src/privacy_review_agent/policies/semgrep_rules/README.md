@@ -45,6 +45,13 @@ mode, our own rules only.
   `tracer.current_span()` / `ddtrace.tracer.current_span()` directly or on
   a span assigned in the same function from `tracer.current_span()` or
   `tracer.trace(...)`.
+- `python-pii-in-tool-result` (`python-pii-in-tool-result.yaml`, cases in
+  `python-pii-in-tool-result.py`): the `return` value of a function
+  decorated as an agent or MCP tool — `@mcp.tool` / `@mcp.tool(...)`
+  (FastMCP / MCP Python SDK), `@function_tool` / `@function_tool(...)`
+  (OpenAI Agents SDK), and `@tool` / `@tool(...)` (LangChain) — as blocking
+  `PII_IN_MODEL_PROMPT`, because a tool result goes back into the model's
+  context.
 
 A source is a sensitive attribute, key or variable name, or a raw request
 body or headers (`req.body`, `request.body`, `req.headers`,
@@ -80,6 +87,26 @@ SDKs, whole user objects (`vars(user)`, `user.__dict__`,
 `user.to_dict()`), Sentry `scope.set_user` / `push_scope` receivers,
 Datadog `appsec` / `statsd`, spans opened with `with ... as`, spans or
 clients not assigned in the same function, or per-vendor allowlisting.
+
+The tool-result rule reuses the telemetry rule's sources, explicit suffix
+allowlist and sanitisers unchanged (same `pattern-sources` and
+`pattern-sanitizers` blocks). It reports personal data anywhere in the
+returned expression — direct, interpolated, nested in a dict or list
+literal, or through a tainted local variable — including a tool parameter
+named like a source, and returns placed in `if`/`for` blocks. Bare `@tool`
+only counts when the file imports `tool` from `langchain_core.tools` or
+`langchain.tools` before the function: without that gate any in-house
+`@tool` decorator (registries, CLI helpers) would be a blocking,
+high-confidence finding. Its category is `PII_IN_MODEL_PROMPT`, which
+already exists in `policies/taxonomy.yaml`, so the taxonomy does not
+change. It does not cover MCP client `call_tool` arguments, tool schemas
+or definitions that declare personal fields, JS/TS SDKs, LlamaIndex,
+CrewAI or Anthropic tool runners, tools registered without a decorator
+(`Tool(func=...)`, `mcp.add_tool`), receivers other than `mcp` (for example
+`@server.tool()`), aliased imports (`import ... as`), imports placed inside
+functions or after the tool, `tool` imported from anywhere but the two
+LangChain modules, generators/`yield`, whole user objects (`vars(user)`,
+`user.to_dict()`), or returns inside nested helpers.
 
 ## YAML-data convention
 
