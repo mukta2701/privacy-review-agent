@@ -87,6 +87,17 @@ Suppression requirements:
 1. Offline-first (default)
 2. Optional controlled verifier egress for supported secret checks
 3. GitHub-only MVP workflow
+4. Review mode: `org` (default) or `personal`, via `--mode` or the
+   `PRIVACY_REVIEW_MODE` env var (the workflow wires
+   `vars.PRIVACY_REVIEW_MODE`, falling back to `org`)
+
+In `personal` mode, a trailing `# privacy-ok: <reason>` or
+`// privacy-ok: <reason>` comment on a finding's own line makes that finding
+non-blocking. It still appears in every report, marked suppressed with its
+reason. Inline markers bypass the approver, ticket and TTL suppression rules,
+so they are personal-only: in `org` mode they are ignored and all output is
+unchanged. In `personal` mode with an empty `SECURITY_TEAM_SLUG`,
+`enforce-rerun-approval` skips with exit 0 instead of failing closed.
 
 ## 7) Outputs for Stakeholders
 
