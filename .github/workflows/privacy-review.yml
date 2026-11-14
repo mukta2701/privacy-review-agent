@@ -26,9 +26,14 @@ jobs:
           privacy-review-agent scan --base-ref origin/main --head-ref HEAD --format sarif --output results.sarif
           privacy-review-agent scan --base-ref origin/main --head-ref HEAD --format json --output results.json
       - name: Upload SARIF
+        if: success() && (github.event.repository.private == false || vars.PRIVACY_REVIEW_UPLOAD_SARIF == 'true')
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
+      - name: Notify SARIF upload skipped
+        if: success() && github.event.repository.private != false && vars.PRIVACY_REVIEW_UPLOAD_SARIF != 'true'
+        run: |
+          echo "::notice::SARIF upload skipped because the repository is private and PRIVACY_REVIEW_UPLOAD_SARIF is not 'true'. Set the PRIVACY_REVIEW_UPLOAD_SARIF repository variable to 'true' to enable it (requires GitHub Advanced Security)."
       - name: Upload JSON report
         if: always()
         uses: actions/upload-artifact@v4
