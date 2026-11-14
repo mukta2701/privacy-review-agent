@@ -502,3 +502,202 @@ def test_detector_empty_pack_does_not_run(monkeypatch, tmp_path, capsys):
     assert capsys.readouterr().err == ""
     assert not any(f.detector == "semgrep" for f in result.findings)
 
+
+def _write_harness_pack(pack: Path, rule_id: str = "h-rule") -> Path:
+    pack.mkdir(parents=True, exist_ok=True)
+    (pack / "h.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "rules": [
+                    {
+                        "id": rule_id,
+                        "languages": ["python"],
+                        "severity": "WARNING",
+                        "message": f"{rule_id} message",
+                        "metadata": dict(RULE_METADATA),
+                        "patterns": [{"pattern": "print($X)"}],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    return pack
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {},
+        {"severity": "high", "confidence": "high", "remediation": "fix it"},
+        {"category": "NOPE", "severity": "high", "confidence": "high",
+         "remediation": "fix it"},
+        {"category": "RAW_PII_LOGGING", "severity": "urgent",
+         "confidence": "high", "remediation": "fix it"},
+        {"category": "RAW_PII_LOGGING", "severity": "high",
+         "confidence": "urgent", "remediation": "fix it"},
+        {"category": "RAW_PII_LOGGING", "severity": "high",
+         "confidence": "high", "remediation": ""},
+        {"category": "RAW_PII_LOGGING", "severity": "high",
+         "confidence": "high"},
+    ],
+)
+def test_metadata_check_flags_each_bad_key(tmp_path, metadata):
+    from privacy_review_agent.semgrep_harness import check_rule_metadata
+
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    (pack / "h.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "rules": [
+                    {
+                        "id": "h-rule",
+                        "languages": ["python"],
+                        "severity": "WARNING",
+                        "message": "m",
+                        "metadata": metadata,
+                        "patterns": [{"pattern": "print($X)"}],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    failures = check_rule_metadata(pack)
+
+    assert len(failures) == 1
+    assert "h-rule" in failures[0]
+
+
+def test_metadata_check_passes_on_valid_rule(tmp_path):
+    from privacy_review_agent.semgrep_harness import check_rule_metadata
+
+    assert check_rule_metadata(_write_harness_pack(tmp_path / "pack")) == []
+
+
+def _write_case_file(pack: Path, lines: list[str]) -> Path:
+    case = pack / "h.py"
+    case.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return case
+
+
+def _harness_run(monkeypatch, tmp_path, case_lines, stub_matches=None):
+    from privacy_review_agent.semgrep_harness import run_rule_tests
+
+    paths = _install_stub(tmp_path / "bin", monkeypatch)
+    pack = _write_harness_pack(tmp_path / "pack")
+    case = _write_case_file(
+        pack, case_lines if case_lines is not None else []
+    )
+    if case_lines is None:
+        case.unlink()
+        _write_stub_results(paths["results"], [])
+    else:
+        _write_stub_results(
+            paths["results"],
+            [
+                {
+                    "check_id": "h-rule",
+                    "path": str(case),
+                    "start": {"line": line, "col": 1},
+                    "extra": {
+                        "message": "m",
+                        "severity": "WARNING",
+                        "metadata": dict(RULE_METADATA),
+                    },
+                }
+                for line in (stub_matches or [])
+            ],
+        )
+    return run_rule_tests(pack)
+
+
+def test_harness_pass_reports_counts(monkeypatch, tmp_path):
+    result = _harness_run(
+        monkeypatch,
+        tmp_path,
+        ["# ruleid: h-rule", "print(user.email)", "# ok: h-rule", 'print("hi")'],
+        stub_matches=[2],
+    )
+
+    assert result.failures == []
+    assert result.rules == 1
+    assert result.cases == 2
+    assert result.to_dict() == {"rules": 1, "cases": 2, "failures": []}
+
+
+def test_harness_positive_not_matched(monkeypatch, tmp_path):
+    result = _harness_run(
+        monkeypatch,
+        tmp_path,
+        ["# ruleid: h-rule", "print(user.email)", "# ok: h-rule", 'print("hi")'],
+        stub_matches=[],
+    )
+
+    assert len(result.failures) == 1
+    assert "h-rule" in result.failures[0]
+
+
+def test_harness_near_miss_matched(monkeypatch, tmp_path):
+    result = _harness_run(
+        monkeypatch,
+        tmp_path,
+        ["# ruleid: h-rule", "print(user.email)", "# ok: h-rule", 'print("hi")'],
+        stub_matches=[2, 4],
+    )
+
+    assert any("near-miss" in failure for failure in result.failures)
+    assert all("h-rule" in failure for failure in result.failures)
+
+
+def test_harness_unannotated_match(monkeypatch, tmp_path):
+    result = _harness_run(
+        monkeypatch,
+        tmp_path,
+        ["# ruleid: h-rule", "print(user.email)", "# ok: h-rule", 'print("hi")',
+         "print(user.email)"],
+        stub_matches=[2, 5],
+    )
+
+    assert any("h-rule" in failure for failure in result.failures)
+
+
+def test_harness_no_test_file(monkeypatch, tmp_path):
+    result = _harness_run(monkeypatch, tmp_path, None)
+
+    assert result.failures
+    assert all("h-rule" in failure for failure in result.failures)
+
+
+def test_harness_no_positive_case(monkeypatch, tmp_path):
+    result = _harness_run(
+        monkeypatch, tmp_path, ["# ok: h-rule", 'print("hi")'], stub_matches=[]
+    )
+
+    assert any("h-rule" in failure for failure in result.failures)
+
+
+def test_harness_no_near_miss_case(monkeypatch, tmp_path):
+    result = _harness_run(
+        monkeypatch,
+        tmp_path,
+        ["# ruleid: h-rule", "print(user.email)"],
+        stub_matches=[2],
+    )
+
+    assert any("h-rule" in failure for failure in result.failures)
+
+
+def test_harness_unknown_rule_id_annotation(monkeypatch, tmp_path):
+    result = _harness_run(
+        monkeypatch,
+        tmp_path,
+        ["# ruleid: ghost-rule", "print(user.email)", "# ok: h-rule", 'print("hi")'],
+        stub_matches=[2],
+    )
+
+    assert any("ghost-rule" in failure for failure in result.failures)
+
+
