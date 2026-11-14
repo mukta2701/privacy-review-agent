@@ -11,9 +11,10 @@ It detects:
 1. Secrets in code
 2. Raw PII logging
 3. Unsafe third-party transfer
-4. PII/quasi-identifiers in LLM prompts
-5. Missing redaction/masking
-6. Policy bypasses
+4. PII in redirect URLs and generated links
+5. PII/quasi-identifiers in LLM prompts
+6. Missing redaction/masking
+7. Policy bypasses
 
 ## 2) End-to-End Flow
 
@@ -49,7 +50,9 @@ flowchart TD
    error-tracking and analytics SDKs as blocking
    `THIRD_PARTY_PII_TRANSFER`, and `python-pii-in-tool-result`, which
    reports personal data returned from an agent or MCP tool as blocking
-   `PII_IN_MODEL_PROMPT`)
+   `PII_IN_MODEL_PROMPT`, and `python-pii-in-url`, which reports personal
+   data placed in a framework redirect URL or a generated link as blocking
+   `PII_IN_URL`)
 4. `Policies` (YAML rule/config packs)
 5. `Reporters` (Markdown, JSON, SARIF outputs)
 6. `CI Workflow` (GitHub Actions integration and enforcement)

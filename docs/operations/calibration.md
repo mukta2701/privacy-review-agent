@@ -42,7 +42,7 @@ keeps working. It holds one JSON object per line. Each case has:
   cases need it); `\r` is never allowed and an empty case is rejected
 - `expect`: the list of detectors the line must trigger
   (empty for a near-miss); `semgrep` labels the shipped PII-in-logs,
-  PII-in-model-prompt, third-party-transfer and telemetry rules in `src/privacy_review_agent/policies/semgrep_rules/`
+  PII-in-model-prompt, third-party-transfer, telemetry and URL rules in `src/privacy_review_agent/policies/semgrep_rules/`
 - `kind`: `near_miss` or `true`
 - `tags`: a list, which may contain `known_gap` or `multiline`
 
@@ -72,7 +72,9 @@ EOF
 
 1. Write one source line with a single intended verdict (several lines
    only for a case that cannot sit on one line, such as a decorated
-   function, and then tag it `multiline`).
+   function or a case that needs its own import lines — the URL rule's
+   bare sinks only count with their framework import in the same file —
+   and then tag it `multiline`).
 2. Label it from the intended meaning: the detector list it must
    trigger, or an empty list for a near-miss.
 3. Encode the line (UTF-8, standard base64, no newlines).
@@ -96,7 +98,14 @@ and Datadog SDK positives; opaque-id, no-PII, sanitised and
 unrelated-receiver near-misses) and the tool-result rule
 (`python-pii-in-tool-result`: `@mcp.tool`, `@function_tool` and gated
 `@tool` positives; undecorated, other-decorated, sanitised, allowlisted and
-wrong-import near-misses). Single-line cases score on line 1 as before; a
+wrong-import near-misses) and the URL rule (`python-pii-in-url`, blocking
+`PII_IN_URL`: Flask,
+Django and Starlette/FastAPI redirect positives plus Flask `url_for`
+positives; opaque-id, constant-path, sanitised, derived-value, allowlisted,
+wrong-import, home-grown-helper and PII-elsewhere near-misses). A redirect
+URL still leaks when it stays on the same site: URLs end up in access logs,
+browser history and `Referer` headers, so every URL-rule match is reported
+with no vendor allowlist. Single-line cases score on line 1 as before; a
 `multiline`-tagged case scores a finding on any of its lines, so the
 tool-result cases live in the corpus while other multi-line calls are still
 covered in the rule-test files instead.

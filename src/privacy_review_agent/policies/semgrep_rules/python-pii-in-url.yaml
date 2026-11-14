@@ -1,0 +1,188 @@
+# Sinks are the framework redirect and link-generation calls, written
+# fully qualified: `flask.redirect(...)` / `flask.url_for(...)`,
+# `django.shortcuts.redirect(...)`,
+# `django.http.HttpResponseRedirect(...)` /
+# `django.http.HttpResponsePermanentRedirect(...)` and
+# `starlette.responses.RedirectResponse(...)` /
+# `fastapi.responses.RedirectResponse(...)`. Semgrep resolves a bare call
+# through its import, so `redirect(...)` counts when it resolves to one of
+# these; any tainted argument counts. A bare name bound in the containing
+# function — by a parameter, a same-named import, `def`, `async def` or
+# `class`, or a plain reassignment — suppresses the finding, as does a
+# module-level same-named definition that the call still resolves to. A
+# later qualifying import after a same-named function or class definition
+# restores the sink (but not after a plain reassignment — see the pack
+# README). Calls with no framework import, through unrelated helpers, or
+# preceding the qualifying import are not sinks; neither are calls through
+# an import alias. Sources,
+# the explicit suffix allowlist and sanitisers are copied unchanged from
+# `python-pii-in-tool-result` (and so from `python-pii-to-telemetry`): no
+# new names, no loosened boundaries. Single-function taint mode, our
+# rules only.
+rules:
+- id: python-pii-in-url
+  languages:
+  - python
+  severity: WARNING
+  message: Personal data placed in a redirect URL or generated link without redaction
+  metadata:
+    category: PII_IN_URL
+    severity: high
+    confidence: high
+    remediation: Pass an opaque id or token instead of personal data in redirect URLs and generated links, or send the data in a POST body.
+  mode: taint
+  pattern-sources:
+  - patterns:
+    - pattern: $OBJ.$FIELD
+    - metavariable-regex:
+        metavariable: $FIELD
+        regex: '[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*'
+    - &id001
+      pattern-not-inside:
+        pattern-either:
+        - pattern: $Y is None
+        - pattern: $Y is not None
+        - pattern: $Y == $Z
+        - pattern: $Y != $Z
+        - pattern: $Y in $Z
+        - pattern: $Y not in $Z
+  - patterns:
+    - pattern: $DICT[$KEY]
+    - metavariable-regex:
+        metavariable: $KEY
+        regex: \A(?![\s\S]*\s)[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+    - *id001
+  - patterns:
+    - pattern: $X
+    - metavariable-regex:
+        metavariable: $X
+        regex: \A(?=[A-Za-z_][A-Za-z0-9_]*\Z)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+    - pattern-not-inside: email.$ATTR
+    - *id001
+  - pattern-either:
+    - pattern: req.body
+    - pattern: request.body
+    - pattern: req.headers
+    - pattern: request.headers
+  pattern-sinks:
+  - patterns:
+    - pattern-either:
+      - pattern: flask.redirect(...)
+      - pattern: flask.url_for(...)
+      - pattern: django.shortcuts.redirect(...)
+      - pattern: django.http.HttpResponseRedirect(...)
+      - pattern: django.http.HttpResponsePermanentRedirect(...)
+      - pattern: starlette.responses.RedirectResponse(...)
+      - pattern: fastapi.responses.RedirectResponse(...)
+    - pattern: $CALLEE(...)
+    - metavariable-regex:
+        metavariable: $CALLEE
+        regex: \A(?:(?:flask\.)?(?:redirect|url_for)|HttpResponseRedirect|HttpResponsePermanentRedirect|RedirectResponse)\Z
+    - pattern-not:
+        patterns:
+        - pattern: $F(...)
+        - pattern-either:
+          - pattern-inside: |
+              def $G(...):
+                ...
+                from $M import $F
+                ...
+          - pattern-inside: |
+              def $G(...):
+                ...
+                def $F(...):
+                  ...
+                ...
+          - pattern-inside: |
+              def $G(...):
+                ...
+                async def $F(...):
+                  ...
+                ...
+          - pattern-inside: |
+              def $G(...):
+                ...
+                class $F(...):
+                  ...
+                ...
+          - pattern-inside: |
+              def $G(...):
+                ...
+                $F = $V
+                ...
+          - pattern-inside: |
+              async def $G(...):
+                ...
+                from $M import $F
+                ...
+          - pattern-inside: |
+              async def $G(...):
+                ...
+                def $F(...):
+                  ...
+                ...
+          - pattern-inside: |
+              async def $G(...):
+                ...
+                async def $F(...):
+                  ...
+                ...
+          - pattern-inside: |
+              async def $G(...):
+                ...
+                class $F(...):
+                  ...
+                ...
+          - pattern-inside: |
+              async def $G(...):
+                ...
+                $F = $V
+                ...
+          - pattern-inside:
+              patterns:
+              - pattern-either:
+                - pattern: |
+                    def $F(...):
+                      ...
+                    ...
+                - pattern: |
+                    async def $F(...):
+                      ...
+                    ...
+                - pattern: |
+                    class $F(...):
+                      ...
+                    ...
+                - pattern: |
+                    $F = $V
+                    ...
+              - pattern-inside: |
+                  from $M import $I
+                  ...
+              - metavariable-comparison:
+                  comparison: str($F) == str($I)
+              - pattern-not-inside: |
+                  def $G(...):
+                    ...
+              - pattern-not-inside: |
+                  async def $G(...):
+                    ...
+              - pattern-not-inside: |
+                  class $C(...):
+                    ...
+  pattern-sanitizers:
+  - pattern-either:
+    - pattern: redact(...)
+    - pattern: $U.redact(...)
+    - pattern: mask(...)
+    - pattern: $U.mask(...)
+    - pattern: hash(...)
+    - pattern: $U.hash(...)
+    - pattern: tokenize(...)
+    - pattern: $U.tokenize(...)
+    - pattern: len(...)
+    - pattern: $U.len(...)
+    - pattern: bool(...)
+    - pattern: $U.bool(...)
+    - pattern: type(...)
+    - pattern: $U.type(...)

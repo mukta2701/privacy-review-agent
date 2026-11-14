@@ -7,6 +7,8 @@ categories:
     severity_default: high
   - id: PII_IN_MODEL_PROMPT
     severity_default: high
+  - id: PII_IN_URL
+    severity_default: high
   - id: INSUFFICIENT_REDACTION
     severity_default: medium
   - id: POLICY_BYPASS
