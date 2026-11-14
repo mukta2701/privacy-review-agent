@@ -473,7 +473,9 @@ The workflow at `.github/workflows/privacy-review.yml` runs automatically on eve
 flowchart TD
     A[PR opened or updated] --> B[GitHub Actions triggered]
     B --> C[privacy-review-agent scans changed lines only]
-    C --> D[Upload SARIF to GitHub Code Scanning]
+    C --> D{Public repo or PRIVACY_REVIEW_UPLOAD_SARIF=true?}
+    D -- Yes --> D1[Upload SARIF to GitHub Code Scanning]
+    D -- No --> D2[Skip SARIF upload with notice]
     C --> E[Retain JSON artifact for 90 days]
     C --> F{Blocking findings?}
     F -- Yes --> G[❌ CI check fails\nPR cannot merge]
@@ -491,6 +493,11 @@ flowchart TD
    falling back to `org` when unset. Personal repositories with no security
    team should set `PRIVACY_REVIEW_MODE=personal` so the rerun-approval step
    is skipped instead of failing closed.
+4. Set the `PRIVACY_REVIEW_UPLOAD_SARIF` repository variable to `true` to
+   enable SARIF upload on a private repo (which needs GitHub Advanced
+   Security). SARIF upload runs on public repos, and on private repos only
+   when this variable is `true`. Otherwise the upload is skipped with a
+   notice and the job result is not affected.
 
 ---
 
