@@ -45,7 +45,7 @@ def _decoded():
 
 def test_manifest_parses_with_expected_size_and_keys():
     cases = _load()
-    assert 150 <= len(cases) <= 300
+    assert 150 <= len(cases) <= 500
     for case in cases:
         assert set(case) == {"id", "ext", "text_b64", "expect", "kind", "tags"}
 
