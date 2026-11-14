@@ -39,7 +39,7 @@ keeps working. It holds one JSON object per line. Each case has:
 - `text_b64`: the single source line, base64 (standard alphabet, UTF-8)
 - `expect`: the list of detectors the line must trigger
   (empty for a near-miss); `semgrep` labels the shipped PII-in-logs,
-  PII-in-model-prompt and third-party-transfer rules in `src/privacy_review_agent/policies/semgrep_rules/`
+  PII-in-model-prompt, third-party-transfer and telemetry rules in `src/privacy_review_agent/policies/semgrep_rules/`
 - `kind`: `near_miss` or `true`
 - `tags`: a list, which may contain `known_gap`
 
@@ -83,9 +83,12 @@ Cases labelled `["semgrep"]` cover the shipped PII-in-logs rules (direct,
 interpolated and request body/headers positives; redacted, non-sensitive,
 string-literal and non-logging near-misses), the PII-in-model-prompt rule
 (OpenAI/Anthropic/Google call positives; non-sensitive, sanitised, compared,
-module-use and non-model near-misses) and the third-party-transfer rule
+module-use and non-model near-misses), the third-party-transfer rule
 (`requests`/`httpx` call positives; sanitised, non-sensitive and
-non-session near-misses). Each case is one scored line,
+non-session near-misses) and the telemetry rule
+(`python-pii-to-telemetry`: Sentry, Segment, PostHog
+and Datadog SDK positives; opaque-id, no-PII, sanitised and
+unrelated-receiver near-misses). Each case is one scored line,
 so multi-line calls are covered in the rule-test files instead.
 
 When `semgrep` is not installed, semgrep-labelled cases are excluded from

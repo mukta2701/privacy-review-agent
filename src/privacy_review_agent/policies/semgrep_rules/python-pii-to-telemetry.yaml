@@ -1,0 +1,132 @@
+# Sinks are error-tracking and product-analytics SDK calls: any tainted
+# argument counts (positional, keyword, or nested inside dict literals).
+# Module-level `sentry_sdk.<method>(...)`
+# (`set_user`/`set_context`/`set_tag`/`set_tags`/`set_extra`/
+# `add_breadcrumb`/`capture_message`/`capture_event`),
+# `analytics.<method>(...)`
+# (`identify`/`track`/`page`/`screen`/`group`/`alias`) and
+# `posthog.<method>(...)`
+# (`capture`/`identify`/`set`/`set_once`/`alias`/`group_identify`) match
+# anywhere; the same six PostHog methods only count on `$S` when it is
+# assigned in the same function from `Posthog(...)`. Datadog
+# `set_tag`/`set_tags` match on `tracer.current_span()` and
+# `ddtrace.tracer.current_span()` directly, or on `$S` assigned in the
+# same function from `tracer.current_span()` or `tracer.trace(...)`.
+# Calls on any other receiver are not sinks. Sources, the explicit suffix
+# allowlist and sanitisers are copied unchanged from
+# `python-pii-to-third-party` (see that file): no new names, no loosened
+# boundaries. The vendor allowlist does not apply: SDK calls carry no URL,
+# so every match is reported. Single-function taint mode, our rules only.
+rules:
+- id: python-pii-to-telemetry
+  languages:
+  - python
+  severity: WARNING
+  message: Personal data sent to error-tracking or analytics SDK without redaction
+  metadata:
+    category: THIRD_PARTY_PII_TRANSFER
+    severity: high
+    confidence: high
+    remediation: Send only an opaque user id to error-tracking and analytics tools; redact or drop personal fields.
+  mode: taint
+  pattern-sources:
+  - patterns:
+    - pattern: $OBJ.$FIELD
+    - metavariable-regex:
+        metavariable: $FIELD
+        regex: '[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*'
+    - &id001
+      pattern-not-inside:
+        pattern-either:
+        - pattern: $Y is None
+        - pattern: $Y is not None
+        - pattern: $Y == $Z
+        - pattern: $Y != $Z
+        - pattern: $Y in $Z
+        - pattern: $Y not in $Z
+  - patterns:
+    - pattern: $DICT[$KEY]
+    - metavariable-regex:
+        metavariable: $KEY
+        regex: \A(?![\s\S]*\s)[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+    - *id001
+  - patterns:
+    - pattern: $X
+    - metavariable-regex:
+        metavariable: $X
+        regex: \A(?=[A-Za-z_][A-Za-z0-9_]*\Z)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+    - pattern-not-inside: email.$ATTR
+    - *id001
+  - pattern-either:
+    - pattern: req.body
+    - pattern: request.body
+    - pattern: req.headers
+    - pattern: request.headers
+  pattern-sinks:
+  - pattern-either:
+    - pattern: sentry_sdk.set_user(...)
+    - pattern: sentry_sdk.set_context(...)
+    - pattern: sentry_sdk.set_tag(...)
+    - pattern: sentry_sdk.set_tags(...)
+    - pattern: sentry_sdk.set_extra(...)
+    - pattern: sentry_sdk.add_breadcrumb(...)
+    - pattern: sentry_sdk.capture_message(...)
+    - pattern: sentry_sdk.capture_event(...)
+    - pattern: analytics.identify(...)
+    - pattern: analytics.track(...)
+    - pattern: analytics.page(...)
+    - pattern: analytics.screen(...)
+    - pattern: analytics.group(...)
+    - pattern: analytics.alias(...)
+    - pattern: posthog.capture(...)
+    - pattern: posthog.identify(...)
+    - pattern: posthog.set(...)
+    - pattern: posthog.set_once(...)
+    - pattern: posthog.alias(...)
+    - pattern: posthog.group_identify(...)
+  - patterns:
+    - pattern-inside: |
+        $S = Posthog(...)
+        ...
+    - pattern-either:
+      - pattern: $S.capture(...)
+      - pattern: $S.identify(...)
+      - pattern: $S.set(...)
+      - pattern: $S.set_once(...)
+      - pattern: $S.alias(...)
+      - pattern: $S.group_identify(...)
+  - pattern-either:
+    - pattern: tracer.current_span().set_tag(...)
+    - pattern: tracer.current_span().set_tags(...)
+    - pattern: ddtrace.tracer.current_span().set_tag(...)
+    - pattern: ddtrace.tracer.current_span().set_tags(...)
+  - patterns:
+    - pattern-inside: |
+        $S = tracer.current_span()
+        ...
+    - pattern-either:
+      - pattern: $S.set_tag(...)
+      - pattern: $S.set_tags(...)
+  - patterns:
+    - pattern-inside: |
+        $S = tracer.trace(...)
+        ...
+    - pattern-either:
+      - pattern: $S.set_tag(...)
+      - pattern: $S.set_tags(...)
+  pattern-sanitizers:
+  - pattern-either:
+    - pattern: redact(...)
+    - pattern: $U.redact(...)
+    - pattern: mask(...)
+    - pattern: $U.mask(...)
+    - pattern: hash(...)
+    - pattern: $U.hash(...)
+    - pattern: tokenize(...)
+    - pattern: $U.tokenize(...)
+    - pattern: len(...)
+    - pattern: $U.len(...)
+    - pattern: bool(...)
+    - pattern: $U.bool(...)
+    - pattern: type(...)
+    - pattern: $U.type(...)

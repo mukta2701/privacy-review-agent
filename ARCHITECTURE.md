@@ -42,9 +42,12 @@ flowchart TD
    pack ships `python-raw-pii-logging` and `js-ts-raw-pii-logging`, which
    report raw PII reaching a logging sink as blocking `RAW_PII_LOGGING`,
    `python-pii-in-model-prompt`, which reports personal data sent to a
-   model call as blocking `PII_IN_MODEL_PROMPT`, and
+   model call as blocking `PII_IN_MODEL_PROMPT`,
    `python-pii-to-third-party`, which reports personal data sent through
-   `requests`/`httpx` calls as blocking `THIRD_PARTY_PII_TRANSFER`)
+   `requests`/`httpx` calls as blocking `THIRD_PARTY_PII_TRANSFER`, and
+   `python-pii-to-telemetry`, which reports personal data sent to
+   error-tracking and analytics SDKs as blocking
+   `THIRD_PARTY_PII_TRANSFER`)
 4. `Policies` (YAML rule/config packs)
 5. `Reporters` (Markdown, JSON, SARIF outputs)
 6. `CI Workflow` (GitHub Actions integration and enforcement)

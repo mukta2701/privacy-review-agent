@@ -298,3 +298,13 @@
 {"id": "tp-transfer-15", "ext": "py", "text_b64": "cmVxdWVzdHMucG9zdCgiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20veCIsIGpzb249eyJlIjogdXNlci5lbWFpbH0p", "expect": ["semgrep"], "kind": "true", "tags": []}
 {"id": "tp-transfer-16", "ext": "py", "text_b64": "aHR0cHguZ2V0KCJodHRwczovL2FwaS5leGFtcGxlLmNvbS94IiwgcGFyYW1zPXsicCI6IGYie3VzZXIucGhvbmV9In0p", "expect": ["semgrep"], "kind": "true", "tags": []}
 {"id": "nm-semgrep-60", "ext": "py", "text_b64": "cmVxdWVzdHMucG9zdCgiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20vY29sbGVjdCIsIGpzb249eyJmaWxlbmFtZSI6IGZpbGVuYW1lfSk=", "expect": [], "kind": "near_miss", "tags": []}
+{"id": "tp-telemetry-1", "ext": "py", "text_b64": "c2VudHJ5X3Nkay5zZXRfdXNlcih7ImVtYWlsIjogdXNlci5lbWFpbH0p", "expect": ["semgrep"], "kind": "true", "tags": []}
+{"id": "tp-telemetry-2", "ext": "py", "text_b64": "YW5hbHl0aWNzLmlkZW50aWZ5KHVzZXIuaWQsIHRyYWl0cz17ImVtYWlsIjogdXNlci5lbWFpbH0p", "expect": ["semgrep"], "kind": "true", "tags": []}
+{"id": "tp-telemetry-3", "ext": "py", "text_b64": "cG9zdGhvZy5jYXB0dXJlKCJzaWdudXAiLCBwcm9wZXJ0aWVzPXsiZW1haWwiOiB1c2VyLmVtYWlsfSk=", "expect": ["semgrep"], "kind": "true", "tags": []}
+{"id": "tp-telemetry-4", "ext": "py", "text_b64": "dHJhY2VyLmN1cnJlbnRfc3BhbigpLnNldF90YWcoImVtYWlsIiwgdXNlci5lbWFpbCk=", "expect": ["semgrep"], "kind": "true", "tags": []}
+{"id": "tp-telemetry-5", "ext": "py", "text_b64": "c2VudHJ5X3Nkay5zZXRfY29udGV4dCgidXNlciIsIHsicGhvbmUiOiB1c2VyLnBob25lfSk=", "expect": ["semgrep"], "kind": "true", "tags": []}
+{"id": "tp-telemetry-6", "ext": "py", "text_b64": "YW5hbHl0aWNzLnRyYWNrKCJzaWdudXAiLCB7InNzbiI6IHVzZXIuc3NufSk=", "expect": ["semgrep"], "kind": "true", "tags": []}
+{"id": "nm-semgrep-61", "ext": "py", "text_b64": "c2VudHJ5X3Nkay5zZXRfdXNlcih7ImlkIjogdXNlci5pZH0p", "expect": [], "kind": "near_miss", "tags": []}
+{"id": "nm-semgrep-62", "ext": "py", "text_b64": "c2VudHJ5X3Nkay5zZXRfdGFnKCJlbnYiLCAicHJvZCIp", "expect": [], "kind": "near_miss", "tags": []}
+{"id": "nm-semgrep-63", "ext": "py", "text_b64": "cG9zdGhvZy5jYXB0dXJlKCJzaWdudXAiLCBwcm9wZXJ0aWVzPXsiZW1haWwiOiByZWRhY3QodXNlci5lbWFpbCl9KQ==", "expect": [], "kind": "near_miss", "tags": []}
+{"id": "nm-semgrep-64", "ext": "py", "text_b64": "bWV0cmljcy5jYXB0dXJlKCJldmVudCIsIHsiZW1haWwiOiB1c2VyLmVtYWlsfSk=", "expect": [], "kind": "near_miss", "tags": []}
