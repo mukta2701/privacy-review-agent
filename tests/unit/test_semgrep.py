@@ -180,6 +180,28 @@ def test_load_rules_without_rules_list_raises(tmp_path):
         load_rules(tmp_path)
 
 
+def test_run_semgrep_separates_options_from_targets(monkeypatch, tmp_path):
+    seen: dict = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["cmd"] = cmd
+        return _completed(stdout=json.dumps({"results": [], "errors": []}))
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("shutil.which", lambda *a, **k: "/usr/bin/semgrep")
+    run_semgrep(
+        [Path("--exclude=*.py"), Path("a.py"), tmp_path / "abs.py"], tmp_path
+    )
+
+    cmd = seen["cmd"]
+    assert "--disable-nosem" in cmd
+    sep = cmd.index("--")
+    before, after = cmd[:sep], cmd[sep + 1 :]
+    assert before.count("--config") == 1
+    assert after == ["./--exclude=*.py", "./a.py", str(tmp_path / "abs.py")]
+    assert not any(str(arg).startswith("-") for arg in after)
+
+
 def test_run_semgrep_missing_binary_raises_not_installed(monkeypatch, tmp_path):
     monkeypatch.setattr("shutil.which", lambda *args, **kwargs: None)
     with pytest.raises(SemgrepNotInstalled):
@@ -348,6 +370,9 @@ def test_detector_stub_argv_is_offline_only(monkeypatch, tmp_path):
     assert "--quiet" in argv
     configs = [argv[i + 1] for i, arg in enumerate(argv) if arg == "--config"]
     assert configs == [str(pack)]
+    assert "--disable-nosem" in argv
+    sep = argv.index("--")
+    assert argv[sep + 1 :] == [str(target)]
     assert not any(
         arg == "auto" or str(arg).startswith("p/") or str(arg).startswith("http")
         for arg in argv

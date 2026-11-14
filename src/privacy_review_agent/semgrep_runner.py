@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import functools
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -109,6 +110,14 @@ def metadata_problem(metadata: Any, categories: set[str]) -> str | None:
     return None
 
 
+def _target_arg(path: Path) -> str:
+    """Render a scan target so it can never parse as an option."""
+    text = os.fspath(path)
+    if os.path.isabs(text) or text.startswith(("./", "../")):
+        return text
+    return "./" + text
+
+
 def run_semgrep(files: list[Path], rules_dir: Path) -> list[SemgrepMatch]:
     """Run `semgrep` once over the files with only the local rules directory."""
     exe = shutil.which("semgrep")
@@ -123,8 +132,10 @@ def run_semgrep(files: list[Path], rules_dir: Path) -> list[SemgrepMatch]:
         "off",
         "--disable-version-check",
         "--no-rewrite-rule-ids",
+        "--disable-nosem",
         "--quiet",
-        *(str(path) for path in files),
+        "--",
+        *(_target_arg(path) for path in files),
     ]
     try:
         result = subprocess.run(
