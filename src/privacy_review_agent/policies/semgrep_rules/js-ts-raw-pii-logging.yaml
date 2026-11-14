@@ -1,12 +1,16 @@
-# Sensitive names (edit here to add or remove a field): email, phone, address, ssn, passport, cookie, token, authorization, transcript, first_name, last_name.
+# Sensitive names (edit here to add or remove a field): email, phone, ssn, first_name, last_name.
 # Standalone `name`, `message` and `body` are excluded as too generic, as are
-# the identifier-only `user_id` and `customer_id`. Also excluded: `upload`,
-# `chat`, `location`, `lat`, `lon` and standalone `headers` (ordinary record,
-# session, path, coordinate and response uses blocked real code; the keyword
-# detector still flags them advisory). A trailing `_` or alnum ends the name,
-# so `token_count` and `upload_dir` do not match but `user_email` does.
-# Sinks and sanitisers are the `pattern-either` lists below; all four
-# sanitisers also match as methods.
+# the identifier-only `user_id` and `customer_id`. Also excluded, because
+# ordinary code kept matching them: `upload`, `chat`, `location`, `lat`,
+# `lon`, standalone `headers`, `token`, `address`, `cookie`, `transcript`,
+# `passport` and `authorization` (the keyword detector still flags them
+# advisory). A name ends before `_suffix` or a camelCase hump, so
+# `user.phone_number`, `user.ssn_last4` and `user.emailVerified` match while
+# plurals (`emails`) and run-together lowercase (`useremail`) do not.
+# `len()`/`bool()` (`Boolean()` in JS/TS) sanitise, `is None`/`is not None`
+# (`==`/`!=`/`===`/`!==` `null`) do not taint, and the stdlib `email` module
+# used as an object (`email.utils`) is not a source. Sinks and sanitisers are
+# `pattern-either` lists below; sanitisers also match as methods.
 rules:
 - id: js-ts-raw-pii-logging
   languages:
@@ -25,17 +29,27 @@ rules:
     - pattern: $OBJ.$FIELD
     - metavariable-regex:
         metavariable: $FIELD
-        regex: '[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Email|EMAIL)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Phone|PHONE)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:address|Address|ADDRESS)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Address|ADDRESS)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Ssn|SSN)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:passport|Passport|PASSPORT)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Passport|PASSPORT)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:cookie|Cookie|COOKIE)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Cookie|COOKIE)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:token|Token|TOKEN)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Token|TOKEN)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:authorization|Authorization|AUTHORIZATION)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Authorization|AUTHORIZATION)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:transcript|Transcript|TRANSCRIPT)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Transcript|TRANSCRIPT)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*'
+        regex: '[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z])))[\s\S]*'
+    - &id001
+      pattern-not-inside:
+        pattern-either:
+        - pattern: $Y == null
+        - pattern: $Y != null
+        - pattern: $Y === null
+        - pattern: $Y !== null
   - patterns:
     - pattern: $DICT[$KEY]
     - metavariable-regex:
         metavariable: $KEY
-        regex: \A(?![\s\S]*\s)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Email|EMAIL)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Phone|PHONE)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:address|Address|ADDRESS)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Address|ADDRESS)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Ssn|SSN)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:passport|Passport|PASSPORT)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Passport|PASSPORT)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:cookie|Cookie|COOKIE)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Cookie|COOKIE)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:token|Token|TOKEN)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Token|TOKEN)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:authorization|Authorization|AUTHORIZATION)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Authorization|AUTHORIZATION)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:transcript|Transcript|TRANSCRIPT)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Transcript|TRANSCRIPT)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+        regex: \A(?![\s\S]*\s)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z])))[\s\S]*
+    - *id001
   - patterns:
     - pattern: $X
     - metavariable-regex:
         metavariable: $X
-        regex: \A(?=[A-Za-z_$][A-Za-z0-9_$]*\Z)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Email|EMAIL)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Phone|PHONE)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:address|Address|ADDRESS)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Address|ADDRESS)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Ssn|SSN)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:passport|Passport|PASSPORT)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Passport|PASSPORT)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:cookie|Cookie|COOKIE)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Cookie|COOKIE)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:token|Token|TOKEN)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Token|TOKEN)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:authorization|Authorization|AUTHORIZATION)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Authorization|AUTHORIZATION)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:transcript|Transcript|TRANSCRIPT)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Transcript|TRANSCRIPT)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+        regex: \A(?=[A-Za-z_$][A-Za-z0-9_$]*\Z)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z])))[\s\S]*
+    - pattern-not-inside: email.$ATTR
+    - *id001
   - pattern-either:
     - pattern: req.body
     - pattern: request.body
@@ -68,3 +82,5 @@ rules:
     - pattern: $U.hash(...)
     - pattern: tokenize(...)
     - pattern: $U.tokenize(...)
+    - pattern: Boolean(...)
+    - pattern: $U.Boolean(...)
