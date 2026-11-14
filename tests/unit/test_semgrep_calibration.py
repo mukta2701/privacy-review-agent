@@ -168,3 +168,35 @@ def test_shadow_credit_applies_to_known_gap_cases(tmp_path):
 
     assert scored.known_gap_misses == []
     assert scored.detectors["semgrep"]["fp"] == 0
+
+
+def test_shadowed_pii_in_prompts_counts_as_keyword_hit(tmp_path):
+    class PromptShadowEngine(FakeEngine):
+        def scan_files(self, files):
+            result = super().scan_files(files)
+            result.findings = [
+                finding for finding in result.findings if finding.detector == "semgrep"
+            ]
+            return result
+
+    manifest = _write_manifest(
+        tmp_path / "cases.jsonl",
+        [
+            _row(
+                "kw-shadow-prompts",
+                "py",
+                "print(SEMGREP_SRC user.email)",
+                ["pii_in_prompts"],
+                "true",
+                [],
+            )
+        ],
+    )
+
+    scored = score_corpus(PromptShadowEngine(), manifest)
+
+    assert scored.detectors["pii_in_prompts"]["tp"] == 1
+    assert scored.detectors["pii_in_prompts"]["fn"] == 0
+    assert scored.detectors["semgrep"]["fp"] == 0
+    assert scored.overall_precision == 1.0
+    assert scored.overall_recall == 1.0

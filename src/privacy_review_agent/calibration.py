@@ -164,23 +164,26 @@ def _without_skipped(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _with_shadow_credit(
     found: list[tuple[str, str]], by_id: dict[str, dict[str, Any]]
 ) -> list[tuple[str, str]]:
-    """Credit a shadowed keyword hit: a `pii_logging` case with only a `semgrep`
-    finding on its line counts as a `pii_logging` hit, not a `semgrep` fp."""
+    """Credit a shadowed keyword hit: a `pii_logging` or `pii_in_prompts`
+    case with only a `semgrep` finding on its line counts as a keyword
+    hit, not a `semgrep` fp."""
     credited = {
-        cid
+        (cid, keyword)
         for cid, detector in found
         if detector == "semgrep"
-        and "pii_logging" in by_id.get(cid, {}).get("expect", [])
-        and (cid, "pii_logging") not in found
+        for keyword in ("pii_logging", "pii_in_prompts")
+        if keyword in by_id.get(cid, {}).get("expect", [])
+        and (cid, keyword) not in found
     }
     if not credited:
         return found
+    credited_ids = {cid for cid, _ in credited}
     kept = [
         (cid, detector)
         for cid, detector in found
-        if not (detector == "semgrep" and cid in credited)
+        if not (detector == "semgrep" and cid in credited_ids)
     ]
-    return sorted(set(kept) | {(cid, "pii_logging") for cid in credited})
+    return sorted(set(kept) | credited)
 
 
 def score_corpus(engine: ReviewEngine, manifest_path: Path) -> CorpusMetrics:

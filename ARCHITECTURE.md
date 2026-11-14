@@ -40,7 +40,9 @@ flowchart TD
    detector runs Semgrep Community Edition offline over the scanned files with
    only the local rule pack and maps results to `confirmed` findings; the
    pack ships `python-raw-pii-logging` and `js-ts-raw-pii-logging`, which
-   report raw PII reaching a logging sink as blocking `RAW_PII_LOGGING`)
+   report raw PII reaching a logging sink as blocking `RAW_PII_LOGGING`,
+   and `python-pii-in-model-prompt`, which reports personal data sent to a
+   model call as blocking `PII_IN_MODEL_PROMPT`)
 4. `Policies` (YAML rule/config packs)
 5. `Reporters` (Markdown, JSON, SARIF outputs)
 6. `CI Workflow` (GitHub Actions integration and enforcement)

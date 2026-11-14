@@ -1,8 +1,9 @@
 # Semgrep rule pack
 
 Structural rules for the `semgrep` detector: a sensitive value reaching a
-Python or JS/TS logging sink is a blocking `RAW_PII_LOGGING` finding.
-Single-function taint mode, our own rules only.
+Python or JS/TS logging sink is a blocking `RAW_PII_LOGGING` finding, and
+personal data sent to a model call is a blocking `PII_IN_MODEL_PROMPT`
+finding. Single-function taint mode, our own rules only.
 
 ## Rules
 
@@ -14,12 +15,29 @@ Single-function taint mode, our own rules only.
   `js-ts-raw-pii-logging.js` and `js-ts-raw-pii-logging.ts`):
   `console.log/info/warn/error/debug` and the `debug`, `info`, `warn`,
   `error`, `log` level methods on `logger` and `log`.
+- `python-pii-in-model-prompt` (`python-pii-in-model-prompt.yaml`, cases in
+  `python-pii-in-model-prompt.py`): OpenAI `chat.completions`
+  (`create`/`parse`/`stream`), `beta.chat.completions` (`parse`/`stream`),
+  `responses` (`create`/`parse`/`stream`) and `completions.create`; Anthropic
+  `messages.create`/`stream` (only with a visible `model=` keyword, so a
+  Twilio-style SMS `messages.create(to=..., body=...)` does not match);
+  Google `generate_content`, `models.generate_content`, and `send_message`
+  only on a chat assigned in the same function from `start_chat(...)` or
+  `chats.create(...)`.
 
 A source is a sensitive attribute, key or variable name, or a raw request
 body or headers (`req.body`, `request.body`, `req.headers`,
 `request.headers`), passed directly, interpolated (f-string, template
 literal, concatenation) or through a tainted local variable in the same
 function. Multi-line calls match once, on the line where the call starts.
+
+The model-prompt rule reuses the logging rule's sources, explicit suffix
+allowlist and sanitisers unchanged (same `pattern-sources` and
+`pattern-sanitizers` blocks, so the same names match and the same
+near-misses stay silent). Only the sinks are new. It does not cover
+LangChain or LlamaIndex call sites, JS/TS model calls, the deprecated
+legacy completion call, or `**kwargs`-only Anthropic calls with no visible
+`model=` keyword.
 
 ## YAML-data convention
 
@@ -74,7 +92,7 @@ Every rule must carry this metadata:
 
 ```yaml
 metadata:
-  category: RAW_PII_LOGGING # an id from `policies/taxonomy.yaml`
+  category: RAW_PII_LOGGING # an id from `policies/taxonomy.yaml` (`RAW_PII_LOGGING` or `PII_IN_MODEL_PROMPT`)
   severity: high # critical | high | medium | low
   confidence: high # high | medium | low
   remediation: Redact or mask PII before logging. # non-empty
