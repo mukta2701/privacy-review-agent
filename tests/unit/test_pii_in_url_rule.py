@@ -63,7 +63,8 @@ def _metavariable_regexes(doc: dict) -> list[str]:
             for item in node:
                 walk(item)
 
-    walk(doc)
+    for source in doc.get("pattern-sources", []):
+        walk(source)
     return values
 
 
@@ -118,6 +119,24 @@ def test_sink_covers_each_framework_form_with_import_gates():
     assert "from django.http import HttpResponsePermanentRedirect" in text
     assert "from starlette.responses import RedirectResponse" in text
     assert "from fastapi.responses import RedirectResponse" in text
+
+
+def test_bare_sinks_exclude_rebinding_and_function_local_imports():
+    text = (PACK / RULE_FILE).read_text(encoding="utf-8")
+
+    for name in (
+        "redirect",
+        "url_for",
+        "HttpResponseRedirect",
+        "HttpResponsePermanentRedirect",
+        "RedirectResponse",
+    ):
+        assert f"def {name}(...):" in text, name
+        assert f"class {name}(...):" in text, name
+        assert f"{name} = $X" in text, name
+    assert "as $X" in text
+    assert "from $M import redirect" in text
+    assert "def $F(...):" in text
 
 
 def _rule_code() -> str:

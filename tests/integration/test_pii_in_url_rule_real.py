@@ -52,6 +52,7 @@ POSITIVE_BLOCKS: list[tuple[str, int]] = [
     ("def _f21():\n    return RedirectResponse(user.email)", 2),
     ("def _f22():\n    return RedirectResponse(url=user.email)", 2),
     ("def _f23():\n    return RedirectResponse(request.headers)", 2),
+    ('@app.route("/x")\ndef _f24():\n    return redirect(user.email)', 3),
 ]
 
 NEAR_MISS_BLOCKS: list[str] = [
@@ -78,6 +79,20 @@ NEAR_MISS_BLOCKS: list[str] = [
     "def _g21():\n    return redirect(useremail)",
     "def _g22():\n    return redirect(email.header)",
     'def _g23():\n    send(user.email)\n    return redirect("/home")',
+    "from flask import redirect\ndef redirect(url):\n    return url\n"
+    "def _h1():\n    return redirect(user.email)",
+    "from django.shortcuts import redirect\nfrom helpers import redirect\n"
+    "def _h2():\n    return redirect(user.email)",
+    "def _h3():\n    from flask import redirect\n    return redirect(user.email)",
+    "def _h4():\n    from django.http import HttpResponsePermanentRedirect\n"
+    "    return HttpResponsePermanentRedirect(user.email)",
+    'def _h5():\n    from flask import url_for\n    return url_for("p", email=user.email)',
+    "from starlette.responses import RedirectResponse\nclass RedirectResponse:\n"
+    "    pass\ndef _h6():\n    return RedirectResponse(user.email)",
+    "from flask import redirect as bounce\ndef redirect(value):\n    return value\n"
+    "def _h7():\n    return redirect(user.email)",
+    "from flask import redirect\nredirect = make_redirect()\n"
+    "def _h8():\n    return redirect(user.email)",
 ]
 
 # (import line, sink line) pairs, each in its own file.
