@@ -4,8 +4,10 @@ Structural rules for the `semgrep` detector: a sensitive value reaching a
 Python or JS/TS logging sink is a blocking `RAW_PII_LOGGING` finding,
 personal data sent to a model call is a blocking `PII_IN_MODEL_PROMPT`
 finding, and personal data sent through a Python `requests`/`httpx` call
-is a blocking `THIRD_PARTY_PII_TRANSFER` finding (unless the vendor is
-allowlisted). Single-function taint mode, our own rules only.
+or to an error-tracking or analytics SDK is a blocking
+`THIRD_PARTY_PII_TRANSFER` finding (the SDK rule has no vendor allowlist;
+the `requests`/`httpx` rule drops allowlisted URLs). Single-function taint
+mode, our own rules only.
 
 ## Rules
 
@@ -32,6 +34,17 @@ allowlisted). Single-function taint mode, our own rules only.
   plus the same six methods on a session or client assigned in the same
   function from `requests.Session()`, `httpx.Client()` or
   `httpx.AsyncClient()`.
+- `python-pii-to-telemetry` (`python-pii-to-telemetry.yaml`, cases in
+  `python-pii-to-telemetry.py`): `sentry_sdk` error-tracking calls
+  (`set_user`/`set_context`/`set_tag`/`set_tags`/`set_extra`/
+  `add_breadcrumb`/`capture_message`/`capture_event`), `analytics`
+  (Segment) calls (`identify`/`track`/`page`/`screen`/`group`/`alias`),
+  `posthog` calls (`capture`/`identify`/`set`/`set_once`/`alias`/
+  `group_identify`) and the same six methods on a client assigned in the
+  same function from `Posthog(...)`, and Datadog `set_tag`/`set_tags` on
+  `tracer.current_span()` / `ddtrace.tracer.current_span()` directly or on
+  a span assigned in the same function from `tracer.current_span()` or
+  `tracer.trace(...)`.
 
 A source is a sensitive attribute, key or variable name, or a raw request
 body or headers (`req.body`, `request.body`, `req.headers`,
@@ -53,10 +66,20 @@ suffix allowlist and sanitisers unchanged (same `pattern-sources` and
 finding when the call's URL is a plain string literal whose host is in
 `policies/vendor_allowlist.yaml` (`allowed_domains`, exact lowercased host
 match); any other URL (non-literal, unlisted host, no `http(s)://` scheme)
-is reported. It does not cover JS/TS `fetch`/`axios`, analytics and
-marketing SDKs, `aiohttp`/`urllib`, sessions not assigned in the same
-function or opened with `with ... as`, URLs that are not string literals
-(they are never allowlisted), and severity does not vary by vendor.
+is reported. It does not cover JS/TS `fetch`/`axios`, error-tracking and
+analytics SDKs (see `python-pii-to-telemetry`), `aiohttp`/`urllib`, sessions
+not assigned in the same function or opened with `with ... as`, URLs that
+are not string literals (they are never allowlisted), and severity does not
+vary by vendor.
+
+The telemetry rule reuses the third-party rule's sources, explicit suffix
+allowlist and sanitisers unchanged (same `pattern-sources` and
+`pattern-sanitizers` blocks). The vendor allowlist does not apply: SDK
+calls carry no URL, so every match is reported. It does not cover JS/TS
+SDKs, whole user objects (`vars(user)`, `user.__dict__`,
+`user.to_dict()`), Sentry `scope.set_user` / `push_scope` receivers,
+Datadog `appsec` / `statsd`, spans opened with `with ... as`, spans or
+clients not assigned in the same function, or per-vendor allowlisting.
 
 ## YAML-data convention
 

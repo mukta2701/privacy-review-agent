@@ -358,7 +358,7 @@ tier `confirmed`, so baselines, suppressions, inline `privacy-ok` and
 changed-line gating apply unchanged. When a Semgrep finding and a keyword
 finding share file, line and category, the Semgrep finding wins.
 
-The pack ships four taint-mode rules that report raw PII reaching a logging
+The pack ships five taint-mode rules that report raw PII reaching a logging
 call as blocking `RAW_PII_LOGGING` (`python-raw-pii-logging`: `print` and the
 `logging`/`logger`/`log` level methods; `js-ts-raw-pii-logging`:
 `console.*` and the `logger`/`log` level methods), personal data sent to a
@@ -366,7 +366,9 @@ model call as blocking `PII_IN_MODEL_PROMPT` (`python-pii-in-model-prompt`:
 OpenAI chat/responses/completions, Anthropic messages with `model=`, Google
 generate/send_message), or personal data sent to a third party as blocking
 `THIRD_PARTY_PII_TRANSFER` (`python-pii-to-third-party`: `requests` and
-`httpx` calls, checked against the vendor allowlist after Semgrep runs).
+`httpx` calls, checked against the vendor allowlist after Semgrep runs;
+`python-pii-to-telemetry`: Sentry, Segment, PostHog and Datadog
+(`ddtrace`) SDK calls, always reported because SDK calls carry no URL).
 Sources are sensitive
 attribute, key or variable names (identifier-part matching, like the keyword
 detectors) and raw request bodies or headers; values passed through an
