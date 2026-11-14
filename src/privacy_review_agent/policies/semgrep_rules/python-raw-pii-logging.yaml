@@ -1,15 +1,20 @@
 # Sensitive names (edit here to add or remove a field): email, phone, ssn, first_name, last_name.
-# Standalone `name`, `message` and `body` are excluded as too generic, as are
-# the identifier-only `user_id` and `customer_id`. Also excluded, because
-# ordinary code kept matching them: `upload`, `chat`, `location`, `lat`,
-# `lon`, standalone `headers`, `token`, `address`, `cookie`, `transcript`,
-# `passport` and `authorization` (the keyword detector still flags them
-# advisory). A name ends before `_suffix` or a camelCase hump, so
-# `user.phone_number`, `user.ssn_last4` and `user.emailVerified` match while
-# plurals (`emails`) and run-together lowercase (`useremail`) do not.
-# `len()`/`bool()` (`Boolean()` in JS/TS) sanitise, `is None`/`is not None`
-# (`==`/`!=`/`===`/`!==` `null`) do not taint, and the stdlib `email` module
-# used as an object (`email.utils`) is not a source. Sinks and sanitisers are
+# Only unambiguous personal data blocks: `email`, `phone`, `ssn`,
+# `first_name`, `last_name` (plus raw request bodies/headers, which stay
+# explicit sources). Everything else from `sensitive_fields.yaml` is out
+# because ordinary code kept matching it; the keyword detector still flags
+# those advisory. Plurals (`emails`) and run-together lowercase (`useremail`)
+# do not match, so the existing `kg-*` known gaps stay gaps. Attribute and
+# key names must start with the sensitive name; explicitly allowed suffixes
+# are `_number`/`Number` (phone, email), `_last4`/`Last4` (ssn, email),
+# `_verified`/`Verified` and `_address`/`Address` (email), so
+# `user.phone_number`, `user.ssn_last4`, `user.emailVerified` and
+# `user.email_address` match while `email_count`, `settings.EMAIL_HOST`,
+# `ssn_pattern` and `phone_type` do not. The stdlib `email` module used as
+# an object (`email.utils`) is not a source.
+# `len()`/`bool()`/`type()` (`Boolean()` and `.length` in JS/TS) sanitise,
+# `is None`/`is not None`/`==`/`!=`/`in` (`==`/`!=`/`===`/`!==`) and `typeof`
+# do not taint. Sinks and sanitisers are
 # `pattern-either` lists below; sanitisers also match as methods.
 rules:
 - id: python-raw-pii-logging
@@ -28,23 +33,27 @@ rules:
     - pattern: $OBJ.$FIELD
     - metavariable-regex:
         metavariable: $FIELD
-        regex: '[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z])))[\s\S]*'
+        regex: '[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*'
     - &id001
       pattern-not-inside:
         pattern-either:
         - pattern: $Y is None
         - pattern: $Y is not None
+        - pattern: $Y == $Z
+        - pattern: $Y != $Z
+        - pattern: $Y in $Z
+        - pattern: $Y not in $Z
   - patterns:
     - pattern: $DICT[$KEY]
     - metavariable-regex:
         metavariable: $KEY
-        regex: \A(?![\s\S]*\s)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z])))[\s\S]*
+        regex: \A(?![\s\S]*\s)[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
     - *id001
   - patterns:
     - pattern: $X
     - metavariable-regex:
         metavariable: $X
-        regex: \A(?=[A-Za-z_][A-Za-z0-9_]*\Z)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z]))|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?:(?![0-9A-Za-z_])|(?=_)|(?<=[a-z0-9])(?=[A-Z])))[\s\S]*
+        regex: \A(?=[A-Za-z_][A-Za-z0-9_]*\Z)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
     - pattern-not-inside: email.$ATTR
     - *id001
   - pattern-either:
@@ -87,3 +96,5 @@ rules:
     - pattern: $U.len(...)
     - pattern: bool(...)
     - pattern: $U.bool(...)
+    - pattern: type(...)
+    - pattern: $U.type(...)
