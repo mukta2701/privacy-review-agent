@@ -19,7 +19,7 @@ dev = [
   "ruff>=0.5.0",
 ]
 semgrep = [
-  "semgrep>=1.0",
+  "semgrep>=1.185.0",
 ]
 
 [project.scripts]
@@ -41,3 +41,8 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# Rule-test files name sinks and sources without defining them; the harness,
+# not the interpreter, reads them.
+"src/privacy_review_agent/policies/semgrep_rules/*.py" = ["F821"]

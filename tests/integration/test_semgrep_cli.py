@@ -371,6 +371,9 @@ def test_calibrate_passing_pack_exits_0(monkeypatch, tmp_path):
     paths = _install_stub(tmp_path / "bin", monkeypatch)
     policies = _policies_with_pack(tmp_path, {"sample.yaml": RULE_YAML})
     pack_dir = policies / "semgrep_rules"
+    for leftover in pack_dir.iterdir():
+        if leftover.name not in {"sample.yaml"}:
+            leftover.unlink()
     (pack_dir / "sample.py").write_text(
         "# ruleid: sample-raw-pii-logging\nprint(user.email)\n"
         "# ok: sample-raw-pii-logging\nprint(\"hello\")\n",
@@ -398,6 +401,7 @@ def test_calibrate_passing_pack_exits_0(monkeypatch, tmp_path):
         "pii_in_prompts",
         "missing_redaction",
         "policy_bypass",
+        "semgrep",
     }
 
 

@@ -1,16 +1,30 @@
 """Tests for score_corpus on small manifests in tmp_path.
 
 Case lines are built from parts so no single source line holds a sink
-and a sensitive field together.
+and a sensitive field together. Semgrep is hidden so these keyword-scoring
+tests are isolated from the shipped rule pack.
 """
 
 import base64
 import json
+import shutil
 
 import pytest
 
 from privacy_review_agent.calibration import score_corpus
 from privacy_review_agent.engine import ReviewEngine
+
+
+@pytest.fixture(autouse=True)
+def _without_semgrep(monkeypatch):
+    real_which = shutil.which
+    monkeypatch.setattr(
+        shutil,
+        "which",
+        lambda *args, **kwargs: None
+        if args and args[0] == "semgrep"
+        else real_which(*args, **kwargs),
+    )
 
 DETECTOR_NAMES = {
     "secrets",
@@ -19,6 +33,7 @@ DETECTOR_NAMES = {
     "pii_in_prompts",
     "missing_redaction",
     "policy_bypass",
+    "semgrep",
 }
 
 LOG_SINK = "print" + "("

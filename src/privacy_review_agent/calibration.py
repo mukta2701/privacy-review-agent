@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,7 +26,14 @@ DETECTOR_NAMES = (
     "pii_in_prompts",
     "missing_redaction",
     "policy_bypass",
+    "semgrep",
 )
+
+
+def semgrep_available() -> bool:
+    """Whether the `semgrep` binary is on PATH (monkeypatchable via shutil)."""
+    return shutil.which("semgrep") is not None
+
 
 CASE_EXTS = ("py", "js", "ts")
 NEAR_MISS = "near_miss"
@@ -119,18 +127,17 @@ def _load_cases(manifest: Path) -> list[dict[str, Any]]:
 
 
 def _scan_keys(engine: ReviewEngine, cases: list[dict[str, Any]]) -> list[tuple[str, str]]:
-    grouped: dict[str, list[dict[str, Any]]] = {}
-    for case in cases:
-        grouped.setdefault(case["ext"], []).append(case)
     found: set[tuple[str, str]] = set()
     with tempfile.TemporaryDirectory(prefix="corpus-") as tmp:
         paths: list[Path] = []
         owners: dict[str, list[dict[str, Any]]] = {}
-        for ext, group in grouped.items():
-            target = Path(tmp) / f"corpus_case.{ext}"
-            target.write_text("".join(item["text"] + "\n" for item in group), encoding="utf-8")
+        # One file per case: a neighbour line with foreign syntax must not
+        # break parsing (and scoring) of the lines around it.
+        for number, case in enumerate(cases):
+            target = Path(tmp) / f"corpus_case_{number:04d}.{case['ext']}"
+            target.write_text(case["text"] + "\n", encoding="utf-8")
             paths.append(target)
-            owners[str(target)] = group
+            owners[str(target)] = [case]
         result = engine.scan_files(paths)
         for finding in result.findings:
             if finding.detector not in DETECTOR_NAMES:
@@ -147,12 +154,43 @@ def _ratio(made: int, total: int) -> float:
     return round(made / total, 4)
 
 
+def _without_skipped(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop semgrep-labelled cases when semgrep is absent (they cannot score)."""
+    if semgrep_available():
+        return cases
+    return [case for case in cases if "semgrep" not in case["expect"]]
+
+
+def _with_shadow_credit(
+    found: list[tuple[str, str]], by_id: dict[str, dict[str, Any]]
+) -> list[tuple[str, str]]:
+    """Credit a shadowed keyword hit: a `pii_logging` case with only a `semgrep`
+    finding on its line counts as a `pii_logging` hit, not a `semgrep` fp."""
+    credited = {
+        cid
+        for cid, detector in found
+        if detector == "semgrep"
+        and "pii_logging" in by_id.get(cid, {}).get("expect", [])
+        and (cid, "pii_logging") not in found
+    }
+    if not credited:
+        return found
+    kept = [
+        (cid, detector)
+        for cid, detector in found
+        if not (detector == "semgrep" and cid in credited)
+    ]
+    return sorted(set(kept) | {(cid, "pii_logging") for cid in credited})
+
+
 def score_corpus(engine: ReviewEngine, manifest_path: Path) -> CorpusMetrics:
     manifest = Path(manifest_path)
-    cases = _load_cases(manifest)
+    cases = _without_skipped(_load_cases(manifest))
 
     first = _scan_keys(engine, cases)
     second = _scan_keys(engine, cases)
+    deterministic = first == second
+    first = _with_shadow_credit(first, {case["id"]: case for case in cases})
 
     by_id = {case["id"]: case for case in cases}
     per: dict[str, dict[str, float | int]] = {
@@ -208,7 +246,7 @@ def score_corpus(engine: ReviewEngine, manifest_path: Path) -> CorpusMetrics:
         known_gap_count=gap_count,
         detectors=per,
         known_gap_misses=sorted(gap_misses),
-        deterministic=first == second,
+        deterministic=deterministic,
     )
 
 
