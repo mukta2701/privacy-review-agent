@@ -97,6 +97,7 @@ def test_rule_metadata_is_valid_and_confirmed_blocking():
         "python-pii-to-third-party": "THIRD_PARTY_PII_TRANSFER",
         "python-pii-to-telemetry": "THIRD_PARTY_PII_TRANSFER",
         "python-pii-in-tool-result": "PII_IN_MODEL_PROMPT",
+        "python-pii-in-url": "PII_IN_URL",
     }
 
     assert check_rule_metadata(PACK) == []
