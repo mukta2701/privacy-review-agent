@@ -36,12 +36,15 @@ keeps working. It holds one JSON object per line. Each case has:
 
 - `id`: unique, stable (for example `nm-001`)
 - `ext`: one of `py`, `js`, `ts`
-- `text_b64`: the single source line, base64 (standard alphabet, UTF-8)
+- `text_b64`: the source line or lines, base64 (standard alphabet, UTF-8):
+  one non-empty line, unless `tags` includes `multiline`, which allows
+  embedded `\n` (a decorator cannot sit on one line, so decorated-function
+  cases need it); `\r` is never allowed and an empty case is rejected
 - `expect`: the list of detectors the line must trigger
   (empty for a near-miss); `semgrep` labels the shipped PII-in-logs,
   PII-in-model-prompt, third-party-transfer and telemetry rules in `src/privacy_review_agent/policies/semgrep_rules/`
 - `kind`: `near_miss` or `true`
-- `tags`: a list, which may contain `known_gap`
+- `tags`: a list, which may contain `known_gap` or `multiline`
 
 Case text is stored base64-only so the committed file stays inert to
 the repo's own privacy scan and the secret pre-commit hook.
@@ -67,7 +70,9 @@ EOF
 
 ## Adding a case
 
-1. Write one source line with a single intended verdict.
+1. Write one source line with a single intended verdict (several lines
+   only for a case that cannot sit on one line, such as a decorated
+   function, and then tag it `multiline`).
 2. Label it from the intended meaning: the detector list it must
    trigger, or an empty list for a near-miss.
 3. Encode the line (UTF-8, standard base64, no newlines).
@@ -88,8 +93,13 @@ module-use and non-model near-misses), the third-party-transfer rule
 non-session near-misses) and the telemetry rule
 (`python-pii-to-telemetry`: Sentry, Segment, PostHog
 and Datadog SDK positives; opaque-id, no-PII, sanitised and
-unrelated-receiver near-misses). Each case is one scored line,
-so multi-line calls are covered in the rule-test files instead.
+unrelated-receiver near-misses) and the tool-result rule
+(`python-pii-in-tool-result`: `@mcp.tool`, `@function_tool` and gated
+`@tool` positives; undecorated, other-decorated, sanitised, allowlisted and
+wrong-import near-misses). Single-line cases score on line 1 as before; a
+`multiline`-tagged case scores a finding on any of its lines, so the
+tool-result cases live in the corpus while other multi-line calls are still
+covered in the rule-test files instead.
 
 When `semgrep` is not installed, semgrep-labelled cases are excluded from
 scoring entirely (no tp/fn, no recall, no `true_case_count`, no

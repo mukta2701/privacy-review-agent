@@ -47,7 +47,9 @@ flowchart TD
    `requests`/`httpx` calls as blocking `THIRD_PARTY_PII_TRANSFER`, and
    `python-pii-to-telemetry`, which reports personal data sent to
    error-tracking and analytics SDKs as blocking
-   `THIRD_PARTY_PII_TRANSFER`)
+   `THIRD_PARTY_PII_TRANSFER`, and `python-pii-in-tool-result`, which
+   reports personal data returned from an agent or MCP tool as blocking
+   `PII_IN_MODEL_PROMPT`)
 4. `Policies` (YAML rule/config packs)
 5. `Reporters` (Markdown, JSON, SARIF outputs)
 6. `CI Workflow` (GitHub Actions integration and enforcement)

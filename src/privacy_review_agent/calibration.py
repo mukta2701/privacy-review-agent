@@ -67,12 +67,14 @@ class CorpusMetrics:
         }
 
 
-def _decode_text(raw: str, where: str) -> str:
+def _decode_text(raw: str, where: str, tags: list[str] | None = None) -> str:
     try:
         text = base64.b64decode(raw, validate=True).decode("utf-8")
     except (binascii.Error, UnicodeDecodeError, ValueError, TypeError) as exc:
         raise ValueError(f"{where}: invalid text_b64: {exc}") from exc
-    if "\n" in text or "\r" in text or not text:
+    if "\r" in text or not text:
+        raise ValueError(f"{where}: decoded case must be exactly one non-empty line")
+    if "\n" in text and "multiline" not in (tags or []):
         raise ValueError(f"{where}: decoded case must be exactly one non-empty line")
     return text
 
@@ -92,7 +94,8 @@ def _validate_case(case: Any, lineno: int, manifest: Path, seen: set[str]) -> st
     seen.add(cid)
     if case["ext"] not in CASE_EXTS:
         raise ValueError(f"{where}: invalid ext {case['ext']!r}")
-    text = _decode_text(case["text_b64"], where)
+    tags = case.get("tags")
+    text = _decode_text(case["text_b64"], where, tags if isinstance(tags, list) else [])
     if not isinstance(case["expect"], list) or any(
         item not in DETECTOR_NAMES for item in case["expect"]
     ):
@@ -130,21 +133,24 @@ def _scan_keys(engine: ReviewEngine, cases: list[dict[str, Any]]) -> list[tuple[
     found: set[tuple[str, str]] = set()
     with tempfile.TemporaryDirectory(prefix="corpus-") as tmp:
         paths: list[Path] = []
-        owners: dict[str, list[dict[str, Any]]] = {}
+        owners: dict[str, tuple[dict[str, Any], int]] = {}
         # One file per case: a neighbour line with foreign syntax must not
         # break parsing (and scoring) of the lines around it.
         for number, case in enumerate(cases):
             target = Path(tmp) / f"corpus_case_{number:04d}.{case['ext']}"
             target.write_text(case["text"] + "\n", encoding="utf-8")
             paths.append(target)
-            owners[str(target)] = [case]
+            owners[str(target)] = (case, len(case["text"].splitlines()))
         result = engine.scan_files(paths)
         for finding in result.findings:
             if finding.detector not in DETECTOR_NAMES:
                 continue
-            group = owners.get(finding.file_path, [])
-            if 1 <= finding.line <= len(group):
-                found.add((group[finding.line - 1]["id"], finding.detector))
+            owner = owners.get(finding.file_path)
+            if owner is None:
+                continue
+            case, nlines = owner
+            if 1 <= finding.line <= nlines:
+                found.add((case["id"], finding.detector))
     return sorted(found)
 
 
