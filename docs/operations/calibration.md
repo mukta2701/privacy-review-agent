@@ -98,11 +98,16 @@ and Datadog SDK positives; opaque-id, no-PII, sanitised and
 unrelated-receiver near-misses) and the tool-result rule
 (`python-pii-in-tool-result`: `@mcp.tool`, `@function_tool` and gated
 `@tool` positives; undecorated, other-decorated, sanitised, allowlisted and
-wrong-import near-misses) and the URL rule (`python-pii-in-url`, blocking
+wrong-import near-misses), the URL rule (`python-pii-in-url`, blocking
 `PII_IN_URL`: Flask,
 Django and Starlette/FastAPI redirect positives plus Flask `url_for`
 positives; opaque-id, constant-path, sanitised, derived-value, allowlisted,
-wrong-import, home-grown-helper and PII-elsewhere near-misses). A redirect
+wrong-import, home-grown-helper and PII-elsewhere near-misses) and the
+schema-field rule (`python-pii-schema-field`, non-blocking medium
+`PII_SCHEMA_FIELD`: Django model-field, `AddField` and `CreateModel`-tuple
+positives; allowlisted-name, non-Django-class, non-sensitive-field,
+settings-host, other-operation, home-grown-models and
+verbose-name-only near-misses). A redirect
 URL still leaks when it stays on the same site: URLs end up in access logs,
 browser history and `Referer` headers, so every URL-rule match is reported
 with no vendor allowlist. Single-line cases score on line 1 as before; a

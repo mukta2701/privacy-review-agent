@@ -1,15 +1,17 @@
 # Semgrep rule pack
 
 Structural rules for the `semgrep` detector: a sensitive value reaching a
-Python or JS/TS logging sink is a blocking `RAW_PII_LOGGING` finding,
-personal data sent to a model call is a blocking `PII_IN_MODEL_PROMPT`
-finding, personal data placed in a redirect URL or a generated link is a
-blocking `PII_IN_URL` finding, and personal data sent through a Python
-`requests`/`httpx` call
+logging sink is a blocking `RAW_PII_LOGGING` finding, personal data sent
+to a model call is a blocking `PII_IN_MODEL_PROMPT` finding, personal data
+placed in a redirect URL or a generated link is a blocking `PII_IN_URL`
+finding, personal data sent through a Python `requests`/`httpx` call
 or to an error-tracking or analytics SDK is a blocking
 `THIRD_PARTY_PII_TRANSFER` finding (the SDK rule has no vendor allowlist;
-the `requests`/`httpx` rule drops allowlisted URLs). Single-function taint
-mode, our own rules only.
+the `requests`/`httpx` rule drops allowlisted URLs), and a Django model or
+migration field whose name is personal data, or whose type is `EmailField`,
+is a non-blocking `PII_SCHEMA_FIELD` finding. Single-function taint
+mode for the flow rules, search mode for the schema rule, our own rules
+only.
 
 ## Rules
 
@@ -67,6 +69,15 @@ mode, our own rules only.
   the calling function (parameter, import, helper, or reassignment), or
   shadowed at module level without a later qualifying import, does not
   block.
+- `python-pii-schema-field` (`python-pii-schema-field.yaml`, cases in
+  `python-pii-schema-field.py`): a Django model field or migration field
+  (`AddField`, `CreateModel`) whose name is personal data, or whose type
+  is `EmailField` — as non-blocking, medium-severity `PII_SCHEMA_FIELD`,
+  because a stored personal-data column needs encryption, hashing or a
+  retention policy but never blocks the merge gate. Sites are written fully
+  qualified (`django.db.models...` / `django.db.migrations...`) and
+  Semgrep resolves them through imports; relation fields (`ForeignKey`,
+  `OneToOneField`, `ManyToManyField`) are never reported.
 
 A source is a sensitive attribute, key or variable name, or a raw request
 body or headers (`req.body`, `request.body`, `req.headers`,
@@ -152,6 +163,29 @@ earlier calls, imports inside functions, arbitrary receiver methods such as
  `if`-guarded reassignment in the same function suppresses the finding,
  while the `try`/`global`/`del` forms still report).
 
+The schema-field rule reuses the bare-name source (`$X`) of the URL rule
+unchanged: the same sensitive names with the same identifier-part
+boundaries (snake_case, camelCase) and the same explicit suffix allowlist
+(`_number`/`Number`, `_last4`/`Last4`, `_verified`/`Verified`,
+`_address`/`Address`), copied verbatim, so field names such as
+`user_email`, `userEmail`, `phone_number`, `ssn_last4` and `email_address`
+match while `email_count`, `settings.EMAIL_HOST`, `ssn_pattern` and
+`phone_type` do not. A boolean `email_verified` field is reported because
+the allowlist is reused verbatim. Its category is `PII_SCHEMA_FIELD`
+(`severity_default: medium` in `policies/taxonomy.yaml`), so findings are
+`confirmed` tier with `high` confidence but never block. A field that is
+both sensitively named and an `EmailField` is reported once per location.
+
+The schema-field rule does not cover SQL migrations, Prisma schemas,
+OpenAPI specs or SQLAlchemy/Alembic columns; models that reach
+`models.Model` only through a base class in another file (including
+`AbstractUser` subclasses); `django.contrib.gis.db.models`;
+`AlterField`/`RenameField` (existing columns are not new); type-only
+detection beyond `EmailField` (a `CharField` named `contact` holding an
+email is missed); and unchanged PII fields in a touched file are still
+listed (non-blocking) because the changed-lines gate only decides
+blocking.
+
 ## YAML-data convention
 
 The sink list, the sensitive-name list and the sanitiser list live in the
@@ -205,7 +239,7 @@ Every rule must carry this metadata:
 
 ```yaml
 metadata:
-  category: RAW_PII_LOGGING # an id from `policies/taxonomy.yaml` (`RAW_PII_LOGGING`, `PII_IN_MODEL_PROMPT`, `PII_IN_URL` or `THIRD_PARTY_PII_TRANSFER`)
+  category: RAW_PII_LOGGING # an id from `policies/taxonomy.yaml` (`RAW_PII_LOGGING`, `PII_IN_MODEL_PROMPT`, `PII_IN_URL`, `THIRD_PARTY_PII_TRANSFER` or `PII_SCHEMA_FIELD`)
   severity: high # critical | high | medium | low
   confidence: high # high | medium | low
   remediation: Redact or mask PII before logging. # non-empty

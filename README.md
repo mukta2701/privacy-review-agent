@@ -35,7 +35,7 @@
 
 **Privacy Review Agent** is an offline-first command-line tool that automatically scans source code for privacy and security risks. It works as a standalone CLI, a git pre-commit hook, or a GitHub Actions CI gate.
 
-It detects 7 categories of risk — hardcoded secrets, raw PII logging, unsafe third-party data transfers, PII in redirect URLs and generated links, PII passed into LLM prompts, missing data redaction, and privacy policy bypasses — and produces structured reports in Markdown, JSON, or SARIF format.
+It detects 8 categories of risk — hardcoded secrets, raw PII logging, unsafe third-party data transfers, PII in redirect URLs and generated links, new PII columns in Django schemas and migrations, PII passed into LLM prompts, missing data redaction, and privacy policy bypasses — and produces structured reports in Markdown, JSON, or SARIF format.
 
 No data leaves your machine by default. Everything runs locally.
 
@@ -108,6 +108,7 @@ flowchart LR
 | `RAW_PII_LOGGING` | Personal data logged without redaction | `logger.info(…)` with a contact field |
 | `THIRD_PARTY_PII_TRANSFER` | PII sent to an unapproved external endpoint | `requests.post(…)` with a contact field |
 | `PII_IN_URL` | Personal data placed in a redirect URL or generated link | `redirect(…)` with a contact field |
+| `PII_SCHEMA_FIELD` | New Django model or migration field storing personal data | `email = models.CharField(…)` |
 | `PII_IN_MODEL_PROMPT` | Raw personal data passed into an LLM prompt | `f"…"` built from a contact field |
 | `INSUFFICIENT_REDACTION` | Sensitive fields emitted without masking or hashing | `log.write(…)` with contact fields |
 | `POLICY_BYPASS` | Consent or privacy checks hard-coded to pass | a hard-coded branch that always passes |
@@ -375,6 +376,10 @@ or personal data sent to a third party as blocking
 `httpx` calls, checked against the vendor allowlist after Semgrep runs;
 `python-pii-to-telemetry`: Sentry, Segment, PostHog and Datadog
 (`ddtrace`) SDK calls, always reported because SDK calls carry no URL).
+An eighth, search-mode (not taint-mode) rule reports a Django model field
+or migration field (`AddField`, `CreateModel`) whose name is personal data,
+or whose type is `EmailField`, as non-blocking medium-severity
+`PII_SCHEMA_FIELD` (`python-pii-schema-field`).
 Sources are sensitive
 attribute, key or variable names (identifier-part matching, like the keyword
 detectors) and raw request bodies or headers; values passed through an
