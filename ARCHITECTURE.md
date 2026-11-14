@@ -38,7 +38,9 @@ flowchart TD
    identifier-aware, full-line `#`/`//` comments are skipped, and secrets merge
    built-in regex results with gitleaks findings; the optional `semgrep`
    detector runs Semgrep Community Edition offline over the scanned files with
-   only the local rule pack and maps results to `confirmed` findings)
+   only the local rule pack and maps results to `confirmed` findings; the
+   pack ships `python-raw-pii-logging` and `js-ts-raw-pii-logging`, which
+   report raw PII reaching a logging sink as blocking `RAW_PII_LOGGING`)
 4. `Policies` (YAML rule/config packs)
 5. `Reporters` (Markdown, JSON, SARIF outputs)
 6. `CI Workflow` (GitHub Actions integration and enforcement)

@@ -38,7 +38,8 @@ keeps working. It holds one JSON object per line. Each case has:
 - `ext`: one of `py`, `js`, `ts`
 - `text_b64`: the single source line, base64 (standard alphabet, UTF-8)
 - `expect`: the list of detectors the line must trigger
-  (empty for a near-miss)
+  (empty for a near-miss); `semgrep` labels the two shipped PII-in-logs
+  rules in `src/privacy_review_agent/policies/semgrep_rules/`
 - `kind`: `near_miss` or `true`
 - `tags`: a list, which may contain `known_gap`
 
@@ -75,6 +76,24 @@ EOF
 
 Label from meaning, never from current output. Never drop, relabel
 or reword a near-miss to move the gate.
+
+## Semgrep-labelled cases
+
+Cases labelled `["semgrep"]` cover the shipped PII-in-logs rules (direct,
+interpolated and request body/headers positives; redacted, non-sensitive,
+string-literal and non-logging near-misses). Each case is one scored line,
+so multi-line calls are covered in the rule-test files instead.
+
+When `semgrep` is not installed, semgrep-labelled cases are excluded from
+scoring entirely (no tp/fn, no recall, no `true_case_count`, no
+per-detector counts), so they never fail the gate; the `semgrep_rule_tests`
+output key is absent too. Near-miss cases are still scored, and results for
+all pre-existing cases are identical to a run with semgrep installed.
+
+A case that expects `pii_logging` and receives only a `semgrep` finding on
+its line (the keyword finding was shadowed by the engine) counts as a
+`pii_logging` hit, and the `semgrep` key is not counted as a false
+positive. This shadow credit applies to `known_gap` cases as well.
 
 ## Known gaps
 
