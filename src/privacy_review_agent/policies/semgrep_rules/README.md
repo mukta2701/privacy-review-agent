@@ -3,7 +3,9 @@
 Structural rules for the `semgrep` detector: a sensitive value reaching a
 Python or JS/TS logging sink is a blocking `RAW_PII_LOGGING` finding,
 personal data sent to a model call is a blocking `PII_IN_MODEL_PROMPT`
-finding, and personal data sent through a Python `requests`/`httpx` call
+finding, personal data placed in a redirect URL or a generated link is a
+blocking `PII_IN_URL` finding, and personal data sent through a Python
+`requests`/`httpx` call
 or to an error-tracking or analytics SDK is a blocking
 `THIRD_PARTY_PII_TRANSFER` finding (the SDK rule has no vendor allowlist;
 the `requests`/`httpx` rule drops allowlisted URLs). Single-function taint
@@ -52,6 +54,17 @@ mode, our own rules only.
   (OpenAI Agents SDK), and `@tool` / `@tool(...)` (LangChain) — as blocking
   `PII_IN_MODEL_PROMPT`, because a tool result goes back into the model's
   context.
+- `python-pii-in-url` (`python-pii-in-url.yaml`, cases in
+  `python-pii-in-url.py`): personal data placed in a framework redirect
+  URL or a generated link — Flask `redirect(...)` / `flask.redirect(...)`,
+  Django `redirect(...)` (`django.shortcuts`), `HttpResponseRedirect(...)`
+  / `HttpResponsePermanentRedirect(...)` (`django.http`), Starlette or
+  FastAPI `RedirectResponse(...)`, and Flask `url_for(...)` /
+  `flask.url_for(...)` (extra keyword arguments become URL parameters) —
+  as blocking `PII_IN_URL`, because URLs end up in access logs, browser
+  history and `Referer` headers. Bare sink names only count when the file
+  imports them from the matching framework module before the call, so an
+  unrelated in-house `redirect()` helper does not block.
 
 A source is a sensitive attribute, key or variable name, or a raw request
 body or headers (`req.body`, `request.body`, `req.headers`,
@@ -108,6 +121,25 @@ functions or after the tool, `tool` imported from anywhere but the two
 LangChain modules, generators/`yield`, whole user objects (`vars(user)`,
 `user.to_dict()`), or returns inside nested helpers.
 
+The URL rule reuses the tool-result rule's sources, explicit suffix
+allowlist and sanitisers unchanged (same `pattern-sources` and
+`pattern-sanitizers` blocks). It reports personal data anywhere in a sink
+argument — direct, interpolated (f-string, concatenation, `%` formatting,
+`.format(...)`), or through a tainted local variable — including attribute,
+key and bare-variable sources, permitted suffixed names such as
+`user.phone_number`, `user.ssn_last4` and `user.emailVerified`, and raw
+request bodies and headers. Multi-line calls match once, on the line where
+the call starts. Its category is `PII_IN_URL` (`severity_default: high` in
+`policies/taxonomy.yaml`), because a same-site redirect URL still leaks
+into access logs, browser history and `Referer` headers and none of the
+existing categories fit. The vendor allowlist does not apply: every match
+is reported. It does not cover cookies or cookie flags, JS/TS sinks,
+standalone URL construction not passed to a listed sink, Django
+`reverse(...)`, `requests`/`httpx` query parameters (already covered by
+`python-pii-to-third-party`), aliased or late imports as authorisation for
+earlier calls, imports inside functions, arbitrary receiver methods such as
+`self.redirect(...)`, or cross-function taint.
+
 ## YAML-data convention
 
 The sink list, the sensitive-name list and the sanitiser list live in the
@@ -161,7 +193,7 @@ Every rule must carry this metadata:
 
 ```yaml
 metadata:
-  category: RAW_PII_LOGGING # an id from `policies/taxonomy.yaml` (`RAW_PII_LOGGING`, `PII_IN_MODEL_PROMPT` or `THIRD_PARTY_PII_TRANSFER`)
+  category: RAW_PII_LOGGING # an id from `policies/taxonomy.yaml` (`RAW_PII_LOGGING`, `PII_IN_MODEL_PROMPT`, `PII_IN_URL` or `THIRD_PARTY_PII_TRANSFER`)
   severity: high # critical | high | medium | low
   confidence: high # high | medium | low
   remediation: Redact or mask PII before logging. # non-empty

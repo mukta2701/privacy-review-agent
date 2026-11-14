@@ -35,7 +35,7 @@
 
 **Privacy Review Agent** is an offline-first command-line tool that automatically scans source code for privacy and security risks. It works as a standalone CLI, a git pre-commit hook, or a GitHub Actions CI gate.
 
-It detects 6 categories of risk — hardcoded secrets, raw PII logging, unsafe third-party data transfers, PII passed into LLM prompts, missing data redaction, and privacy policy bypasses — and produces structured reports in Markdown, JSON, or SARIF format.
+It detects 7 categories of risk — hardcoded secrets, raw PII logging, unsafe third-party data transfers, PII in redirect URLs and generated links, PII passed into LLM prompts, missing data redaction, and privacy policy bypasses — and produces structured reports in Markdown, JSON, or SARIF format.
 
 No data leaves your machine by default. Everything runs locally.
 
@@ -107,6 +107,7 @@ flowchart LR
 | `SECRET_EXPOSURE` | Hardcoded API keys, tokens, passwords in source code | an `API_KEY` value (omitted) |
 | `RAW_PII_LOGGING` | Personal data logged without redaction | `logger.info(…)` with a contact field |
 | `THIRD_PARTY_PII_TRANSFER` | PII sent to an unapproved external endpoint | `requests.post(…)` with a contact field |
+| `PII_IN_URL` | Personal data placed in a redirect URL or generated link | `redirect(…)` with a contact field |
 | `PII_IN_MODEL_PROMPT` | Raw personal data passed into an LLM prompt | `f"…"` built from a contact field |
 | `INSUFFICIENT_REDACTION` | Sensitive fields emitted without masking or hashing | `log.write(…)` with contact fields |
 | `POLICY_BYPASS` | Consent or privacy checks hard-coded to pass | a hard-coded branch that always passes |
@@ -358,14 +359,18 @@ tier `confirmed`, so baselines, suppressions, inline `privacy-ok` and
 changed-line gating apply unchanged. When a Semgrep finding and a keyword
 finding share file, line and category, the Semgrep finding wins.
 
-The pack ships six taint-mode rules that report raw PII reaching a logging
+The pack ships seven taint-mode rules that report raw PII reaching a logging
 call as blocking `RAW_PII_LOGGING` (`python-raw-pii-logging`: `print` and the
 `logging`/`logger`/`log` level methods; `js-ts-raw-pii-logging`:
 `console.*` and the `logger`/`log` level methods), personal data sent to a
 model call as blocking `PII_IN_MODEL_PROMPT` (`python-pii-in-model-prompt`:
 OpenAI chat/responses/completions, Anthropic messages with `model=`, Google
 generate/send_message; `python-pii-in-tool-result`: personal data returned
-from an agent or MCP tool function, which re-enters the model's context), or personal data sent to a third party as blocking
+from an agent or MCP tool function, which re-enters the model's context),
+personal data placed in a redirect URL or generated link as blocking
+`PII_IN_URL` (`python-pii-in-url`: Flask/Django/Starlette/FastAPI redirects
+and Flask `url_for`, with a per-origin framework-import gate on bare names),
+or personal data sent to a third party as blocking
 `THIRD_PARTY_PII_TRANSFER` (`python-pii-to-third-party`: `requests` and
 `httpx` calls, checked against the vendor allowlist after Semgrep runs;
 `python-pii-to-telemetry`: Sentry, Segment, PostHog and Datadog
