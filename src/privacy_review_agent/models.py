@@ -83,6 +83,8 @@ class Finding:
     tier: EvidenceTier = EvidenceTier.KEYWORD
     occurrence: int = 1
     legacy_fingerprint: str = ""
+    suppressed: bool = False
+    suppression_reason: str = ""
 
     def __post_init__(self) -> None:
         if not self.legacy_fingerprint:
@@ -114,7 +116,7 @@ class Finding:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "detector": self.detector,
             "category": self.category,
             "severity": self.severity.value,
@@ -128,6 +130,10 @@ class Finding:
             "blocking": self.blocking,
             "tier": self.tier.value,
         }
+        if self.suppressed:
+            payload["suppressed"] = True
+            payload["suppression_reason"] = self.suppression_reason
+        return payload
 
 
 @dataclass

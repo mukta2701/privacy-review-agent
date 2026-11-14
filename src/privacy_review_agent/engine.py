@@ -23,7 +23,18 @@ from privacy_review_agent.models import (
     Severity,
     assign_occurrences,
 )
-from privacy_review_agent.suppressions import is_suppressed, load_suppressions
+from privacy_review_agent.suppressions import (
+    is_suppressed,
+    load_suppressions,
+    parse_inline_suppression_reason,
+)
+
+
+def _read_lines(file_path: str) -> list[str] | None:
+    try:
+        return Path(file_path).read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return None
 
 
 @dataclass
@@ -141,6 +152,9 @@ class ReviewEngine:
             if is_suppressed(finding, suppression_policy):
                 finding.blocking = False
 
+        if self.settings.mode == "personal":
+            self._apply_inline_suppressions(filtered)
+
         return ScanResult(
             findings=sorted(filtered, key=lambda x: (x.file_path, x.line, x.category)),
             meta={
@@ -179,6 +193,22 @@ class ReviewEngine:
         return self._combine_metrics(
             precision, recall, stable, tp, fp, unsafe_file_count, corpus
         )
+
+    @staticmethod
+    def _apply_inline_suppressions(findings: list[Finding]) -> None:
+        lines_by_file: dict[str, list[str] | None] = {}
+        for finding in findings:
+            if finding.file_path not in lines_by_file:
+                lines_by_file[finding.file_path] = _read_lines(finding.file_path)
+            lines = lines_by_file[finding.file_path]
+            if not lines or finding.line < 1 or finding.line > len(lines):
+                continue
+            reason = parse_inline_suppression_reason(lines[finding.line - 1])
+            if reason is None:
+                continue
+            finding.suppressed = True
+            finding.suppression_reason = reason
+            finding.blocking = False
 
     @staticmethod
     def _combine_metrics(

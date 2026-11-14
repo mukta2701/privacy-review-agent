@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -8,6 +9,16 @@ from typing import Any
 import yaml
 
 from privacy_review_agent.models import Finding
+
+_INLINE_MARKER = re.compile(r"(?:#|//)\s*privacy-ok:\s*(\S.*)")
+
+
+def parse_inline_suppression_reason(line: str) -> str | None:
+    """Return the `privacy-ok` reason on one source line, or None."""
+    match = _INLINE_MARKER.search(line)
+    if not match:
+        return None
+    return match.group(1).strip()
 
 
 @dataclass

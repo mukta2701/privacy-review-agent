@@ -20,6 +20,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
       - name: Run privacy scan
+        env:
+          PRIVACY_REVIEW_MODE: ${{ vars.PRIVACY_REVIEW_MODE || 'org' }}
         run: |
           privacy-review-agent scan --base-ref origin/main --head-ref HEAD --format sarif --output results.sarif
           privacy-review-agent scan --base-ref origin/main --head-ref HEAD --format json --output results.json
@@ -38,6 +40,7 @@ jobs:
         if: always()
         env:
           SECURITY_TEAM_SLUG: ${{ vars.SECURITY_TEAM_SLUG }}
+          PRIVACY_REVIEW_MODE: ${{ vars.PRIVACY_REVIEW_MODE || 'org' }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: |
           privacy-review-agent enforce-rerun-approval --required-label privacy-rerun-approved
