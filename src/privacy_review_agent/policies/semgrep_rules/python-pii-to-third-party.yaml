@@ -1,0 +1,121 @@
+# Sinks are Python `requests` and `httpx` calls: any argument tainted
+# counts (`json=`, `data=`, `params=`, `headers=`, `files=`,
+# `content=`, `url=`). Module-level `requests.<method>(...)` and
+# `httpx.<method>(...)` (`get`/`post`/`put`/`patch`/`delete`/`request`)
+# match anywhere; the same six methods only count on `$S` when it is
+# assigned in the same function from `requests.Session()`,
+# `httpx.Client()` or `httpx.AsyncClient()`. Calls on any other receiver
+# are not sinks. Sources, the explicit suffix allowlist and sanitisers
+# are copied unchanged from `python-pii-in-model-prompt` (see that file):
+# no new names, no loosened boundaries. The vendor allowlist is applied
+# after Semgrep runs (see the detector): a call whose URL is a string
+# literal on an allowed domain is dropped in Python, so this rule YAML
+# stays allowlist-agnostic. Single-function taint mode, our rules only.
+rules:
+- id: python-pii-to-third-party
+  languages:
+  - python
+  severity: WARNING
+  message: Personal data sent to a third party without redaction
+  metadata:
+    category: THIRD_PARTY_PII_TRANSFER
+    severity: high
+    confidence: high
+    remediation: Remove or redact personal data before sending it to a third party, or add the vendor to the allowlist.
+  mode: taint
+  pattern-sources:
+  - patterns:
+    - pattern: $OBJ.$FIELD
+    - metavariable-regex:
+        metavariable: $FIELD
+        regex: '[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*'
+    - &id001
+      pattern-not-inside:
+        pattern-either:
+        - pattern: $Y is None
+        - pattern: $Y is not None
+        - pattern: $Y == $Z
+        - pattern: $Y != $Z
+        - pattern: $Y in $Z
+        - pattern: $Y not in $Z
+  - patterns:
+    - pattern: $DICT[$KEY]
+    - metavariable-regex:
+        metavariable: $KEY
+        regex: \A(?![\s\S]*\s)[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+    - *id001
+  - patterns:
+    - pattern: $X
+    - metavariable-regex:
+        metavariable: $X
+        regex: \A(?=[A-Za-z_][A-Za-z0-9_]*\Z)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+    - pattern-not-inside: email.$ATTR
+    - *id001
+  - pattern-either:
+    - pattern: req.body
+    - pattern: request.body
+    - pattern: req.headers
+    - pattern: request.headers
+  pattern-sinks:
+  - pattern-either:
+    - pattern: requests.get(...)
+    - pattern: requests.post(...)
+    - pattern: requests.put(...)
+    - pattern: requests.patch(...)
+    - pattern: requests.delete(...)
+    - pattern: requests.request(...)
+    - pattern: httpx.get(...)
+    - pattern: httpx.post(...)
+    - pattern: httpx.put(...)
+    - pattern: httpx.patch(...)
+    - pattern: httpx.delete(...)
+    - pattern: httpx.request(...)
+  - patterns:
+    - pattern-inside: |
+        $S = requests.Session()
+        ...
+    - pattern-either:
+      - pattern: $S.get(...)
+      - pattern: $S.post(...)
+      - pattern: $S.put(...)
+      - pattern: $S.patch(...)
+      - pattern: $S.delete(...)
+      - pattern: $S.request(...)
+  - patterns:
+    - pattern-inside: |
+        $S = httpx.Client()
+        ...
+    - pattern-either:
+      - pattern: $S.get(...)
+      - pattern: $S.post(...)
+      - pattern: $S.put(...)
+      - pattern: $S.patch(...)
+      - pattern: $S.delete(...)
+      - pattern: $S.request(...)
+  - patterns:
+    - pattern-inside: |
+        $S = httpx.AsyncClient()
+        ...
+    - pattern-either:
+      - pattern: $S.get(...)
+      - pattern: $S.post(...)
+      - pattern: $S.put(...)
+      - pattern: $S.patch(...)
+      - pattern: $S.delete(...)
+      - pattern: $S.request(...)
+  pattern-sanitizers:
+  - pattern-either:
+    - pattern: redact(...)
+    - pattern: $U.redact(...)
+    - pattern: mask(...)
+    - pattern: $U.mask(...)
+    - pattern: hash(...)
+    - pattern: $U.hash(...)
+    - pattern: tokenize(...)
+    - pattern: $U.tokenize(...)
+    - pattern: len(...)
+    - pattern: $U.len(...)
+    - pattern: bool(...)
+    - pattern: $U.bool(...)
+    - pattern: type(...)
+    - pattern: $U.type(...)
