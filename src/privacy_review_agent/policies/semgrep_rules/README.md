@@ -1,9 +1,11 @@
 # Semgrep rule pack
 
 Structural rules for the `semgrep` detector: a sensitive value reaching a
-Python or JS/TS logging sink is a blocking `RAW_PII_LOGGING` finding, and
+Python or JS/TS logging sink is a blocking `RAW_PII_LOGGING` finding,
 personal data sent to a model call is a blocking `PII_IN_MODEL_PROMPT`
-finding. Single-function taint mode, our own rules only.
+finding, and personal data sent through a Python `requests`/`httpx` call
+is a blocking `THIRD_PARTY_PII_TRANSFER` finding (unless the vendor is
+allowlisted). Single-function taint mode, our own rules only.
 
 ## Rules
 
@@ -24,6 +26,12 @@ finding. Single-function taint mode, our own rules only.
   Google `generate_content`, `models.generate_content`, and `send_message`
   only on a chat assigned in the same function from `start_chat(...)` or
   `chats.create(...)`.
+- `python-pii-to-third-party` (`python-pii-to-third-party.yaml`, cases in
+  `python-pii-to-third-party.py`): `requests.get/post/put/patch/delete/request`
+  and `httpx.get/post/put/patch/delete/request` (any tainted argument counts),
+  plus the same six methods on a session or client assigned in the same
+  function from `requests.Session()`, `httpx.Client()` or
+  `httpx.AsyncClient()`.
 
 A source is a sensitive attribute, key or variable name, or a raw request
 body or headers (`req.body`, `request.body`, `req.headers`,
@@ -38,6 +46,17 @@ near-misses stay silent). Only the sinks are new. It does not cover
 LangChain or LlamaIndex call sites, JS/TS model calls, the deprecated
 legacy completion call, or `**kwargs`-only Anthropic calls with no visible
 `model=` keyword.
+
+The third-party rule reuses the model-prompt rule's sources, explicit
+suffix allowlist and sanitisers unchanged (same `pattern-sources` and
+`pattern-sanitizers` blocks). After Semgrep runs, the detector drops a
+finding when the call's URL is a plain string literal whose host is in
+`policies/vendor_allowlist.yaml` (`allowed_domains`, exact lowercased host
+match); any other URL (non-literal, unlisted host, no `http(s)://` scheme)
+is reported. It does not cover JS/TS `fetch`/`axios`, analytics and
+marketing SDKs, `aiohttp`/`urllib`, sessions not assigned in the same
+function or opened with `with ... as`, URLs that are not string literals
+(they are never allowlisted), and severity does not vary by vendor.
 
 ## YAML-data convention
 
@@ -92,7 +111,7 @@ Every rule must carry this metadata:
 
 ```yaml
 metadata:
-  category: RAW_PII_LOGGING # an id from `policies/taxonomy.yaml` (`RAW_PII_LOGGING` or `PII_IN_MODEL_PROMPT`)
+  category: RAW_PII_LOGGING # an id from `policies/taxonomy.yaml` (`RAW_PII_LOGGING`, `PII_IN_MODEL_PROMPT` or `THIRD_PARTY_PII_TRANSFER`)
   severity: high # critical | high | medium | low
   confidence: high # high | medium | low
   remediation: Redact or mask PII before logging. # non-empty

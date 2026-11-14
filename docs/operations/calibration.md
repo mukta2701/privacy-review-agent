@@ -38,8 +38,8 @@ keeps working. It holds one JSON object per line. Each case has:
 - `ext`: one of `py`, `js`, `ts`
 - `text_b64`: the single source line, base64 (standard alphabet, UTF-8)
 - `expect`: the list of detectors the line must trigger
-  (empty for a near-miss); `semgrep` labels the shipped PII-in-logs and
-  PII-in-model-prompt rules in `src/privacy_review_agent/policies/semgrep_rules/`
+  (empty for a near-miss); `semgrep` labels the shipped PII-in-logs,
+  PII-in-model-prompt and third-party-transfer rules in `src/privacy_review_agent/policies/semgrep_rules/`
 - `kind`: `near_miss` or `true`
 - `tags`: a list, which may contain `known_gap`
 
@@ -81,9 +81,11 @@ or reword a near-miss to move the gate.
 
 Cases labelled `["semgrep"]` cover the shipped PII-in-logs rules (direct,
 interpolated and request body/headers positives; redacted, non-sensitive,
-string-literal and non-logging near-misses) and the PII-in-model-prompt rule
+string-literal and non-logging near-misses), the PII-in-model-prompt rule
 (OpenAI/Anthropic/Google call positives; non-sensitive, sanitised, compared,
-module-use and non-model near-misses). Each case is one scored line,
+module-use and non-model near-misses) and the third-party-transfer rule
+(`requests`/`httpx` call positives; sanitised, non-sensitive and
+non-session near-misses). Each case is one scored line,
 so multi-line calls are covered in the rule-test files instead.
 
 When `semgrep` is not installed, semgrep-labelled cases are excluded from
@@ -92,7 +94,8 @@ per-detector counts), so they never fail the gate; the `semgrep_rule_tests`
 output key is absent too. Near-miss cases are still scored, and results for
 all pre-existing cases are identical to a run with semgrep installed.
 
-A case that expects `pii_logging` or `pii_in_prompts` and receives only a `semgrep` finding on
+A case that expects `pii_logging`, `pii_in_prompts` or `third_party_transfer`
+and receives only a `semgrep` finding on
 its line (the keyword finding was shadowed by the engine) counts as a
 keyword hit, and the `semgrep` key is not counted as a false
 positive. This shadow credit applies to `known_gap` cases as well.
