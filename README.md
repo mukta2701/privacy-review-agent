@@ -205,7 +205,7 @@ make demo
 - Message: Potential hardcoded secret detected
 - Evidence: an `API_KEY` value (omitted)
 - Remediation: Remove secret from code, rotate credential, move to a secret manager.
-- Fingerprint: `b07ecfb56cf596a9`
+- Fingerprint: `f855efce34298464`
 ```
 
 ---
@@ -234,6 +234,25 @@ Useful when adopting the tool on a codebase that already has existing issues. Fi
 
 ```bash
 privacy-review-agent baseline create --ref HEAD --output .privacy-review-baseline.json
+```
+
+Baselines record `"fingerprint_version": 2`. Fingerprints are
+line-independent: they hash the detector, category, file path, normalised
+evidence and a per-file occurrence number, so inserting lines above a finding
+does not change its fingerprint. A baseline file without
+`fingerprint_version` is a legacy (line-based) baseline. Scans still honour
+legacy entries, but print a warning to stderr suggesting
+`privacy-review-agent baseline migrate`.
+
+### `baseline migrate` — Upgrade a legacy baseline
+
+Rewrites a legacy `.privacy-review-baseline.json` to the version 2 scheme by
+rescanning the working tree and keeping the new fingerprint of every finding
+whose legacy fingerprint is in the old file. Entries that no longer match
+anything are dropped and reported.
+
+```bash
+privacy-review-agent baseline migrate --baseline-file .privacy-review-baseline.json --output .privacy-review-baseline.json
 ```
 
 ### `calibrate` — Validate detection accuracy
@@ -309,11 +328,16 @@ they stay advisory until a structural rule confirms them in a later phase.
 
 If the agent flags something that is not a real risk, add a suppression entry to `.privacy-review-ignore.yaml` in your project root.
 
+Fingerprints are line-independent: moving code around a finding does not
+change its fingerprint, so suppressions survive edits above the finding. An
+entry whose `id` is an old line-based fingerprint still matches until the
+entry expires.
+
 ```yaml
 max_ttl_days: 14
 require_github_issue: true
 entries:
-  - id: b07ecfb56cf596a9          # fingerprint from JSON output
+  - id: f855efce34298464          # fingerprint from JSON output
     reason: "Test fixture — not real PII"
     privacy_approver: your-name
     security_approver: your-name

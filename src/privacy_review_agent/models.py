@@ -24,6 +24,49 @@ class EvidenceTier(str, Enum):
     KEYWORD = "keyword"
 
 
+def normalize_evidence(evidence: str) -> str:
+    return " ".join(evidence.strip().split())
+
+
+def compute_fingerprint(
+    detector: str,
+    category: str,
+    file_path: str,
+    evidence: str,
+    occurrence: int = 1,
+) -> str:
+    key = "|".join([detector, category, file_path, normalize_evidence(evidence), str(occurrence)])
+    return sha256(key.encode("utf-8")).hexdigest()[:16]
+
+
+def compute_legacy_fingerprint(
+    detector: str,
+    category: str,
+    file_path: str,
+    line: int,
+    message: str,
+    evidence: str,
+) -> str:
+    key = "|".join([detector, category, file_path, str(line), message, evidence])
+    return sha256(key.encode("utf-8")).hexdigest()[:16]
+
+
+def assign_occurrences(findings: list[Finding]) -> None:
+    groups: dict[tuple[str, str, str, str], list[Finding]] = {}
+    for finding in findings:
+        key = (
+            finding.file_path,
+            finding.detector,
+            finding.category,
+            normalize_evidence(finding.evidence),
+        )
+        groups.setdefault(key, []).append(finding)
+    for group in groups.values():
+        group.sort(key=lambda item: item.line)
+        for index, finding in enumerate(group, start=1):
+            finding.set_occurrence(index)
+
+
 @dataclass
 class Finding:
     detector: str
@@ -38,20 +81,37 @@ class Finding:
     fingerprint: str = ""
     blocking: bool = False
     tier: EvidenceTier = EvidenceTier.KEYWORD
+    occurrence: int = 1
+    legacy_fingerprint: str = ""
 
     def __post_init__(self) -> None:
-        if not self.fingerprint:
-            key = "|".join(
-                [
-                    self.detector,
-                    self.category,
-                    self.file_path,
-                    str(self.line),
-                    self.message,
-                    self.evidence,
-                ]
+        if not self.legacy_fingerprint:
+            self.legacy_fingerprint = compute_legacy_fingerprint(
+                self.detector,
+                self.category,
+                self.file_path,
+                self.line,
+                self.message,
+                self.evidence,
             )
-            self.fingerprint = sha256(key.encode("utf-8")).hexdigest()[:16]
+        if not self.fingerprint:
+            self.fingerprint = compute_fingerprint(
+                self.detector,
+                self.category,
+                self.file_path,
+                self.evidence,
+                self.occurrence,
+            )
+
+    def set_occurrence(self, occurrence: int) -> None:
+        self.occurrence = occurrence
+        self.fingerprint = compute_fingerprint(
+            self.detector,
+            self.category,
+            self.file_path,
+            self.evidence,
+            self.occurrence,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {

@@ -25,11 +25,11 @@ def _collect_files(paths: list[Path]) -> list[Path]:
     return out
 
 
-def _load_baseline(path: Path) -> set[str]:
+def _load_baseline(path: Path) -> tuple[set[str], bool]:
     if not path.exists():
-        return set()
+        return set(), False
     raw = json.loads(path.read_text(encoding="utf-8"))
-    return set(raw.get("fingerprints", []))
+    return set(raw.get("fingerprints", [])), "fingerprint_version" not in raw
 
 
 def _emit(content: str, output: str | None) -> None:
@@ -75,13 +75,28 @@ def scan(
     settings.allow_verifier_egress = allow_verifier_egress
     engine = ReviewEngine(settings=settings)
 
-    baseline = _load_baseline(baseline_file)
+    baseline, is_legacy_baseline = _load_baseline(baseline_file)
+    if is_legacy_baseline:
+        click.echo(
+            "Warning: legacy baseline without fingerprint_version detected; "
+            "run `privacy-review-agent baseline migrate` to upgrade.",
+            err=True,
+        )
 
     if paths:
         files = _collect_files(list(paths))
-        result = engine.scan_files(files, baseline_fingerprints=baseline)
+        result = engine.scan_files(
+            files,
+            baseline_fingerprints=baseline,
+            allow_legacy_baseline=is_legacy_baseline,
+        )
     else:
-        result = engine.scan_ref(base_ref, head_ref, baseline_fingerprints=baseline)
+        result = engine.scan_ref(
+            base_ref,
+            head_ref,
+            baseline_fingerprints=baseline,
+            allow_legacy_baseline=is_legacy_baseline,
+        )
 
     if fmt == "json":
         content = render_json(result)
@@ -113,9 +128,57 @@ def baseline_create(ref: str, output: str) -> None:
         "created_from_ref": ref,
         "fingerprints": sorted([finding.fingerprint for finding in result.findings]),
         "count": len(result.findings),
+        "fingerprint_version": 2,
     }
     Path(output).write_text(json.dumps(payload, indent=2), encoding="utf-8")
     click.echo(f"Baseline written: {output} ({payload['count']} fingerprints)")
+
+
+@baseline.command("migrate")
+@click.option(
+    "--baseline-file",
+    default=".privacy-review-baseline.json",
+    type=click.Path(path_type=Path),
+)
+@click.option("--output", default=None, type=click.Path(path_type=Path))
+def baseline_migrate(baseline_file: Path, output: Path | None) -> None:
+    baseline_path = Path(baseline_file)
+    output_path = Path(output) if output is not None else baseline_path
+    if not baseline_path.exists():
+        click.echo(f"Baseline file not found: {baseline_path}", err=True)
+        raise SystemExit(1)
+    raw = json.loads(baseline_path.read_text(encoding="utf-8"))
+    if "fingerprint_version" in raw:
+        click.echo(
+            f"Baseline already migrated (fingerprint_version {raw['fingerprint_version']}): "
+            f"{baseline_path}",
+            err=True,
+        )
+        raise SystemExit(1)
+    old_fingerprints = set(raw.get("fingerprints", []))
+    engine = ReviewEngine()
+    files = _collect_files([Path(".")])
+    result = engine.scan_files(files)
+    matched = {finding.legacy_fingerprint for finding in result.findings}
+    migrated = sorted(
+        {
+            finding.fingerprint
+            for finding in result.findings
+            if finding.legacy_fingerprint in old_fingerprints
+        }
+    )
+    dropped = len(old_fingerprints - matched)
+    payload: dict[str, object] = {
+        "fingerprints": migrated,
+        "count": len(migrated),
+        "fingerprint_version": 2,
+    }
+    if "created_from_ref" in raw:
+        payload = {"created_from_ref": raw["created_from_ref"], **payload}
+    output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    click.echo(
+        f"Migrated baseline: {len(migrated)} migrated, {dropped} dropped: {output_path}"
+    )
 
 
 @main.command("enforce-rerun-approval")

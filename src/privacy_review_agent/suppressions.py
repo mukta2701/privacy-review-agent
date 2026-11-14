@@ -31,7 +31,8 @@ def load_suppressions(path: Path) -> SuppressionPolicy:
 
 def is_suppressed(finding: Finding, policy: SuppressionPolicy) -> bool:
     for entry in policy.entries:
-        if str(entry.get("id", "")) != finding.fingerprint:
+        entry_id = str(entry.get("id", ""))
+        if entry_id != finding.fingerprint and entry_id != finding.legacy_fingerprint:
             continue
         if not _entry_valid(entry, policy.max_ttl_days, policy.require_github_issue):
             continue

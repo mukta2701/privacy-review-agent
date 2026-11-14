@@ -15,7 +15,14 @@ from privacy_review_agent.detectors import (
 )
 from privacy_review_agent.detectors.base import Detector, DetectorContext
 from privacy_review_agent.git_diff import changed_files, changed_lines
-from privacy_review_agent.models import Confidence, EvidenceTier, Finding, ScanResult, Severity
+from privacy_review_agent.models import (
+    Confidence,
+    EvidenceTier,
+    Finding,
+    ScanResult,
+    Severity,
+    assign_occurrences,
+)
 from privacy_review_agent.suppressions import is_suppressed, load_suppressions
 
 
@@ -85,6 +92,7 @@ class ReviewEngine:
         head_ref: str,
         baseline_fingerprints: set[str] | None = None,
         suppressions_file: Path = Path(".privacy-review-ignore.yaml"),
+        allow_legacy_baseline: bool = False,
     ) -> ScanResult:
         files = changed_files(base_ref, head_ref)
         changed_map = changed_lines(base_ref, head_ref)
@@ -93,6 +101,7 @@ class ReviewEngine:
             changed_map=changed_map,
             baseline_fingerprints=baseline_fingerprints,
             suppressions_file=suppressions_file,
+            allow_legacy_baseline=allow_legacy_baseline,
         )
 
     def scan_files(
@@ -101,6 +110,7 @@ class ReviewEngine:
         changed_map: dict[str, set[int]] | None = None,
         baseline_fingerprints: set[str] | None = None,
         suppressions_file: Path = Path(".privacy-review-ignore.yaml"),
+        allow_legacy_baseline: bool = False,
     ) -> ScanResult:
         context = DetectorContext(settings=self.settings)
         baseline = baseline_fingerprints or set()
@@ -110,8 +120,14 @@ class ReviewEngine:
         for detector in self.detectors:
             findings.extend(detector.scan(files, context))
 
-        deduped: dict[str, Finding] = {}
+        deduped_legacy: dict[str, Finding] = {}
         for finding in findings:
+            deduped_legacy.setdefault(finding.legacy_fingerprint, finding)
+
+        assign_occurrences(list(deduped_legacy.values()))
+
+        deduped: dict[str, Finding] = {}
+        for finding in deduped_legacy.values():
             deduped.setdefault(finding.fingerprint, finding)
 
         filtered = list(deduped.values())
@@ -119,6 +135,8 @@ class ReviewEngine:
             in_changed_lines = self._in_changed_lines(finding, changed_map)
             finding.blocking = self._is_blocking(finding, in_changed_lines)
             if finding.fingerprint in baseline:
+                finding.blocking = False
+            elif allow_legacy_baseline and finding.legacy_fingerprint in baseline:
                 finding.blocking = False
             if is_suppressed(finding, suppression_policy):
                 finding.blocking = False
