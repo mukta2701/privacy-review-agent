@@ -109,7 +109,9 @@ unchanged. In `personal` mode with an empty `SECURITY_TEAM_SLUG`,
 
 1. PR check status (pass/block)
 2. PR-ready Markdown findings with remediation hints
-3. SARIF for security tooling
+3. SARIF for security tooling (the workflow uploads SARIF only on public
+   repos or when the `PRIVACY_REVIEW_UPLOAD_SARIF` repository variable is
+   `true`, and skips with a notice otherwise)
 4. JSON report artifact (90-day retention in current workflow)
 5. Calibration metrics (fixture precision and recall, per-detector precision
    and recall over the labelled corpus scored by the new `calibration` module,
