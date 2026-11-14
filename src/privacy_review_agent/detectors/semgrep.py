@@ -48,19 +48,22 @@ def _transfer_url_argument(call: ast.Call) -> ast.expr | None:
 
 
 def is_allowlisted_transfer(
-    match: SemgrepMatch, file_text: str, allowlist: Collection[str]
+    match: SemgrepMatch, file_data: bytes, allowlist: Collection[str]
 ) -> bool:
     """Whether a third-party-transfer match hits an allowlisted vendor.
 
-    Reads the call text from the file using the match span and drops the
-    finding only when the URL argument is a plain string literal whose host
-    is in the allowlist. Anything else (non-literal URL, unlisted host,
-    literal without a scheme, unparseable span, another rule) is reported.
+    Reads the call text from the file bytes using the match span (Semgrep
+    offsets are byte offsets) and drops the finding only when the URL
+    argument is a plain string literal whose host is in the allowlist.
+    Anything else (non-literal URL, unlisted host, literal without a
+    scheme, unparseable span, another rule) is reported.
     """
     if match.rule_id != TRANSFER_RULE_ID:
         return False
     try:
-        tree = ast.parse(file_text[match.offset : match.end_offset])
+        tree = ast.parse(
+            file_data[match.offset : match.end_offset].decode("utf-8", errors="replace")
+        )
     except (SyntaxError, ValueError):
         return False
     calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
@@ -121,13 +124,13 @@ class SemgrepDetector(Detector):
             if problem is not None:
                 self._notify(f"Semgrep rule {match.rule_id} skipped: {problem}.")
                 continue
-            text = _read_text(by_realpath[real])
-            if text is None:
+            data = _read_bytes(by_realpath[real])
+            if data is None:
                 continue
-            lines = text.splitlines()
+            lines = data.decode("utf-8", errors="ignore").splitlines()
             if match.line > len(lines):
                 continue
-            if is_allowlisted_transfer(match, text, context.settings.vendor_allowlist):
+            if is_allowlisted_transfer(match, data, context.settings.vendor_allowlist):
                 continue
             findings.append(
                 Finding(
@@ -146,8 +149,8 @@ class SemgrepDetector(Detector):
         return sorted(findings, key=lambda finding: (finding.file_path, finding.line))
 
 
-def _read_text(file_path: str) -> str | None:
+def _read_bytes(file_path: str) -> bytes | None:
     try:
-        return Path(file_path).read_text(encoding="utf-8", errors="ignore")
+        return Path(file_path).read_bytes()
     except OSError:
         return None

@@ -185,3 +185,57 @@ def test_allowlisted_vendor_url_is_dropped_while_others_report(tmp_path):
         if finding.detector == "semgrep"
     }
     assert matched == {1, 2, 3}
+
+
+@needs_semgrep
+def test_non_ascii_comment_above_allowlisted_call_is_dropped(tmp_path):
+    import dataclasses
+
+    from privacy_review_agent.config import load_settings
+    from privacy_review_agent.engine import ReviewEngine
+
+    settings = dataclasses.replace(
+        load_settings(), vendor_allowlist=["api.vendor.example"]
+    )
+    engine = ReviewEngine(settings)
+
+    target = tmp_path / "allowlisted_unicode.py"
+    target.write_bytes(
+        (
+            "# héllo wörld ✓ 日本語 😀\n"
+            'requests.post("https://api.vendor.example/x", json={"e": user.email})\n'
+        ).encode("utf-8")
+    )
+
+    assert not [
+        finding
+        for finding in engine.scan_files([target]).findings
+        if finding.detector == "semgrep"
+    ]
+
+
+@needs_semgrep
+def test_crlf_file_allowlisted_call_is_dropped(tmp_path):
+    import dataclasses
+
+    from privacy_review_agent.config import load_settings
+    from privacy_review_agent.engine import ReviewEngine
+
+    settings = dataclasses.replace(
+        load_settings(), vendor_allowlist=["api.vendor.example"]
+    )
+    engine = ReviewEngine(settings)
+
+    target = tmp_path / "allowlisted_crlf.py"
+    target.write_bytes(
+        (
+            "# vendor call below\r\n"
+            'requests.post("https://api.vendor.example/x", json={"e": user.email})\r\n'
+        ).encode("utf-8")
+    )
+
+    assert not [
+        finding
+        for finding in engine.scan_files([target]).findings
+        if finding.detector == "semgrep"
+    ]
