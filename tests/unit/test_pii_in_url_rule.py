@@ -104,39 +104,30 @@ def test_sources_and_sanitisers_match_tool_result_rule():
     assert new_doc["pattern-sanitizers"] == other_doc["pattern-sanitizers"]
 
 
-def test_sink_covers_each_framework_form_with_import_gates():
+def test_sink_covers_each_framework_form_with_resolution():
     text = (PACK / RULE_FILE).read_text(encoding="utf-8")
 
     assert "flask.redirect" in text
     assert "flask.url_for" in text
-    assert "HttpResponseRedirect" in text
-    assert "HttpResponsePermanentRedirect" in text
-    assert "RedirectResponse" in text
-    assert "from flask import redirect" in text
-    assert "from flask import url_for" in text
-    assert "from django.shortcuts import redirect" in text
-    assert "from django.http import HttpResponseRedirect" in text
-    assert "from django.http import HttpResponsePermanentRedirect" in text
-    assert "from starlette.responses import RedirectResponse" in text
-    assert "from fastapi.responses import RedirectResponse" in text
+    assert "django.shortcuts.redirect" in text
+    assert "django.http.HttpResponseRedirect" in text
+    assert "django.http.HttpResponsePermanentRedirect" in text
+    assert "starlette.responses.RedirectResponse" in text
+    assert "fastapi.responses.RedirectResponse" in text
+    assert "$CALLEE" in text
 
 
-def test_bare_sinks_exclude_rebinding_and_function_local_imports():
+def test_bare_sinks_exclude_local_and_module_level_rebinding():
     text = (PACK / RULE_FILE).read_text(encoding="utf-8")
 
-    for name in (
-        "redirect",
-        "url_for",
-        "HttpResponseRedirect",
-        "HttpResponsePermanentRedirect",
-        "RedirectResponse",
-    ):
-        assert f"def {name}(...):" in text, name
-        assert f"class {name}(...):" in text, name
-        assert f"{name} = $X" in text, name
-    assert "as $X" in text
-    assert "from $M import redirect" in text
+    assert "def $G(...):" in text
+    assert "async def $G(...):" in text
+    assert "from $M import $F" in text
     assert "def $F(...):" in text
+    assert "async def $F(...):" in text
+    assert "class $F(...):" in text
+    assert "$F = $V" in text
+    assert "str($F) == str($I)" in text
 
 
 def _rule_code() -> str:

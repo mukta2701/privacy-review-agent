@@ -62,9 +62,11 @@ mode, our own rules only.
   FastAPI `RedirectResponse(...)`, and Flask `url_for(...)` /
   `flask.url_for(...)` (extra keyword arguments become URL parameters) —
   as blocking `PII_IN_URL`, because URLs end up in access logs, browser
-  history and `Referer` headers. Bare sink names only count when the file
-  imports them from the matching framework module before the call, so an
-  unrelated in-house `redirect()` helper does not block.
+  history and `Referer` headers. Sinks are written fully qualified and
+  Semgrep resolves bare calls through their imports; a bare name bound in
+  the calling function (parameter, import, helper, or reassignment), or
+  shadowed at module level without a later qualifying import, does not
+  block.
 
 A source is a sensitive attribute, key or variable name, or a raw request
 body or headers (`req.body`, `request.body`, `req.headers`,
@@ -138,7 +140,17 @@ standalone URL construction not passed to a listed sink, Django
 `reverse(...)`, `requests`/`httpx` query parameters (already covered by
 `python-pii-to-third-party`), aliased or late imports as authorisation for
 earlier calls, imports inside functions, arbitrary receiver methods such as
-`self.redirect(...)`, or cross-function taint.
+`self.redirect(...)`, or cross-function taint. Known resolution gaps
+ (all single-function, file-local analysis): a module-level reassignment
+ before the framework import still suppresses the finding even though the
+ import restores the binding; an import of the same name from another
+ module in an earlier function suppresses a later bare call; star imports
+ (`from flask import *`) are not tracked as authorising imports; a function
+ parameter or local variable named `flask` does not stop a literal
+ `flask.redirect(...)` call from matching; and rebinding inside `if`/`try`
+ blocks, `global` declarations, or `del` statements is not modelled (an
+ `if`-guarded reassignment in the same function suppresses the finding,
+ while the `try`/`global`/`del` forms still report).
 
 ## YAML-data convention
 

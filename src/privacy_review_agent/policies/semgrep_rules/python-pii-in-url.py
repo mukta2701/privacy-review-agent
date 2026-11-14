@@ -359,3 +359,58 @@ def pii_elsewhere_link():
     notify(user.email)
     # ok: python-pii-in-url
     return url_for("home")
+
+
+import flask  # noqa: E402
+from flask import redirect as bounce  # noqa: E402
+
+
+def bounce_call():
+    # ok: python-pii-in-url
+    return bounce(user.email)
+
+
+def qualified_with_alias():
+    # ruleid: python-pii-in-url
+    return flask.redirect(user.email)
+
+
+def local_helper(value):
+    return value
+
+
+def param_shadow(redirect=local_helper):
+    # ok: python-pii-in-url
+    return redirect(user.email)
+
+
+def param_plain(redirect):
+    # ok: python-pii-in-url
+    return redirect(user.email)
+
+
+class Client:
+    def redirect(self, value):
+        return value
+
+
+def method_shadow():
+    # ruleid: python-pii-in-url
+    return redirect(user.email)
+
+
+def redirect(value):  # noqa: F811
+    return value
+
+
+def alias_then_def():
+    # ok: python-pii-in-url
+    return redirect(user.email)
+
+
+from flask import redirect  # noqa: E402,F811
+
+
+def restored_after_def():
+    # ruleid: python-pii-in-url
+    return redirect(user.email)

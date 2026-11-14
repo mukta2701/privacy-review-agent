@@ -283,3 +283,215 @@ def test_end_to_end_finding_is_confirmed_blocking_without_keyword(tmp_path):
     assert hit.confidence.value == "high"
     assert hit.blocking is True
     assert not any(f.detector != "semgrep" and f.line == 3 for f in result.findings)
+
+
+def _write_case(tmp_path: Path, name: str, code: str) -> Path:
+    target = tmp_path / name
+    target.write_text(code, encoding="utf-8")
+    return target
+
+
+def _semgrep_lines(result) -> set[int]:
+    return {finding.line for finding in result.findings if finding.detector == "semgrep"}
+
+
+@needs_semgrep
+def test_parameter_shadowing_produces_no_match(tmp_path):
+    from privacy_review_agent.engine import ReviewEngine
+
+    cases = [
+        "from flask import redirect\n"
+        "def local_helper(value):\n"
+        "    return value\n"
+        "def _f(redirect=local_helper):\n"
+        "    return redirect(user.email)\n",
+        "from flask import redirect\n"
+        "def _f(redirect):\n"
+        "    return redirect(user.email)\n",
+        "from django.http import HttpResponseRedirect\n"
+        "def _f(HttpResponseRedirect):\n"
+        "    return HttpResponseRedirect(user.email)\n",
+    ]
+    for number, code in enumerate(cases):
+        target = _write_case(tmp_path, f"param_{number}.py", code)
+
+        result = ReviewEngine().scan_files([target])
+
+        assert _semgrep_lines(result) == set()
+
+
+@needs_semgrep
+def test_qualified_call_with_aliased_import_matches(tmp_path):
+    from privacy_review_agent.engine import ReviewEngine
+
+    cases = [
+        (
+            "import flask\n"
+            "from flask import redirect as bounce\n"
+            "def _f():\n"
+            "    return flask.redirect(user.email)\n",
+            {4},
+        ),
+        (
+            "import flask\n"
+            "from flask import url_for as build\n"
+            "def _f():\n"
+            '    return flask.url_for("p", email=user.email)\n',
+            {4},
+        ),
+    ]
+    for number, (code, expected) in enumerate(cases):
+        target = _write_case(tmp_path, f"alias_{number}.py", code)
+
+        result = ReviewEngine().scan_files([target])
+
+        assert _semgrep_lines(result) == expected
+
+
+@needs_semgrep
+def test_qualified_call_after_helper_def_or_reimport_matches(tmp_path):
+    from privacy_review_agent.engine import ReviewEngine
+
+    cases = [
+        (
+            "import flask\n"
+            "from flask import redirect\n"
+            "def redirect(value):\n"
+            "    return value\n"
+            "def _f():\n"
+            "    return flask.redirect(user.email)\n",
+            {6},
+        ),
+        (
+            "import flask\n"
+            "from flask import redirect\n"
+            "from helpers import redirect\n"
+            "def _f():\n"
+            "    return flask.redirect(user.email)\n",
+            {5},
+        ),
+    ]
+    for number, (code, expected) in enumerate(cases):
+        target = _write_case(tmp_path, f"qualrebind_{number}.py", code)
+
+        result = ReviewEngine().scan_files([target])
+
+        assert _semgrep_lines(result) == expected
+
+
+@needs_semgrep
+def test_class_method_does_not_suppress_bare_sink(tmp_path):
+    from privacy_review_agent.engine import ReviewEngine
+
+    cases = [
+        (
+            "from flask import redirect\n"
+            "class Client:\n"
+            "    def redirect(self, value):\n"
+            "        return value\n"
+            "def _f():\n"
+            "    return redirect(user.email)\n",
+            {6},
+        ),
+        (
+            "from starlette.responses import RedirectResponse\n"
+            "class Client:\n"
+            "    def RedirectResponse(self, value):\n"
+            "        return value\n"
+            "def _f():\n"
+            "    return RedirectResponse(user.email)\n",
+            {6},
+        ),
+    ]
+    for number, (code, expected) in enumerate(cases):
+        target = _write_case(tmp_path, f"method_{number}.py", code)
+
+        result = ReviewEngine().scan_files([target])
+
+        assert _semgrep_lines(result) == expected
+
+
+@needs_semgrep
+def test_restored_framework_binding_matches(tmp_path):
+    from privacy_review_agent.engine import ReviewEngine
+
+    cases = [
+        (
+            "def redirect(value):\n"
+            "    return value\n"
+            "from flask import redirect\n"
+            "def _f():\n"
+            "    return redirect(user.email)\n",
+            {5},
+        ),
+        (
+            "from flask import redirect\n"
+            "def redirect(value):\n"
+            "    return value\n"
+            "from flask import redirect\n"
+            "def _f():\n"
+            "    return redirect(user.email)\n",
+            {6},
+        ),
+        (
+            "from helpers import redirect\n"
+            "from flask import redirect\n"
+            "def _f():\n"
+            "    return redirect(user.email)\n",
+            {4},
+        ),
+    ]
+    for number, (code, expected) in enumerate(cases):
+        target = _write_case(tmp_path, f"restored_{number}.py", code)
+
+        result = ReviewEngine().scan_files([target])
+
+        assert _semgrep_lines(result) == expected
+
+
+@needs_semgrep
+def test_qualified_calls_need_no_import(tmp_path):
+    from privacy_review_agent.engine import ReviewEngine
+
+    cases = [
+        (
+            "import flask\n"
+            "def _f():\n"
+            "    return flask.redirect(user.email)\n",
+            {3},
+        ),
+        (
+            "def _f():\n"
+            "    return flask.redirect(user.email)\n",
+            {2},
+        ),
+    ]
+    for number, (code, expected) in enumerate(cases):
+        target = _write_case(tmp_path, f"qualonly_{number}.py", code)
+
+        result = ReviewEngine().scan_files([target])
+
+        assert _semgrep_lines(result) == expected
+
+
+@needs_semgrep
+def test_async_function_matches_and_async_local_import_does_not(tmp_path):
+    from privacy_review_agent.engine import ReviewEngine
+
+    positive = _write_case(
+        tmp_path,
+        "async_pos.py",
+        "from flask import redirect\n"
+        "async def _f():\n"
+        "    return redirect(user.email)\n",
+    )
+    negative = _write_case(
+        tmp_path,
+        "async_neg.py",
+        "async def _f():\n"
+        "    from flask import redirect\n"
+        "    return redirect(user.email)\n",
+    )
+
+    assert _semgrep_lines(ReviewEngine().scan_files([positive])) == {3}
+    assert _semgrep_lines(ReviewEngine().scan_files([negative])) == set()
