@@ -1,0 +1,59 @@
+# A Django model field or migration field stores a new personal-data column
+# when its name is personal data, or its type is `EmailField`. The three
+# places are a class-level assignment in a `django.db.models.Model`
+# subclass, a `django.db.migrations.AddField` field, and a
+# `django.db.migrations.CreateModel` fields tuple. Relation fields
+# (`ForeignKey`, `OneToOneField`, `ManyToManyField`) point at another row
+# and store no value, so they are never reported. The sensitive-name regex
+# is copied verbatim from the bare-name source (`$X`) in
+# `python-pii-in-url`: field names are bare identifiers (`user_email`,
+# `userEmail`), so they need the snake_case and camelCase forms. Sites are
+# written fully qualified (`django.db.models...` /
+# `django.db.migrations...`) and Semgrep resolves them through imports; a
+# home-grown `models` or a file with no Django import does not match.
+# `AlterField` and `RenameField` touch existing columns, not new ones, so
+# they stay silent. `RemoveField` deletes a column, so it stays silent too.
+# Search mode, our own rules only. Findings are medium severity and never
+# block.
+rules:
+- id: python-pii-schema-field
+  languages:
+  - python
+  severity: WARNING
+  message: Personal data stored in a new Django model or migration field
+  metadata:
+    category: PII_SCHEMA_FIELD
+    severity: medium
+    confidence: high
+    remediation: Confirm this personal-data field is needed, and consider encrypting, hashing or setting a retention policy for it.
+  patterns:
+  - pattern-either:
+    - patterns:
+      - &schema_site
+        pattern-either:
+        - patterns:
+          - pattern: $N = $FLD
+          - pattern-inside: |
+              class $C(..., django.db.models.Model, ...):
+                ...
+        - pattern: django.db.migrations.AddField(..., name="$N", field=$FLD)
+        - patterns:
+          - pattern: ("$N", $FLD)
+          - pattern-inside: django.db.migrations.CreateModel(...)
+      - metavariable-regex:
+          metavariable: $N
+          regex: '\A(?=[A-Za-z_][A-Za-z0-9_]*\Z)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*'
+      - metavariable-pattern:
+          metavariable: $FLD
+          patterns:
+          - pattern: django.db.models.$F(...)
+          - pattern-not: django.db.models.ForeignKey(...)
+          - pattern-not: django.db.models.OneToOneField(...)
+          - pattern-not: django.db.models.ManyToManyField(...)
+      - focus-metavariable: $FLD
+    - patterns:
+      - *schema_site
+      - metavariable-pattern:
+          metavariable: $FLD
+          pattern: django.db.models.EmailField(...)
+      - focus-metavariable: $FLD
