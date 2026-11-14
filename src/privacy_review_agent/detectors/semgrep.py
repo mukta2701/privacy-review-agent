@@ -39,8 +39,11 @@ class SemgrepDetector(Detector):
         if shutil.which("semgrep") is None:
             self._notify(MISSING_NOTICE)
             return []
+        rules_dir = context.settings.semgrep_rules_dir
+        if rules_dir is None:
+            return []
         try:
-            rules = load_rules(context.settings.semgrep_rules_dir)
+            rules = load_rules(rules_dir)
         except ValueError as exc:
             self._notify(f"Semgrep rules could not be loaded ({exc}); skipping.")
             return []
@@ -50,8 +53,7 @@ class SemgrepDetector(Detector):
         if not existing:
             return []
         try:
-            assert context.settings.semgrep_rules_dir is not None
-            matches = run_semgrep(existing, context.settings.semgrep_rules_dir)
+            matches = run_semgrep(existing, rules_dir)
         except SemgrepNotInstalled:
             self._notify(MISSING_NOTICE)
             return []
@@ -86,9 +88,7 @@ class SemgrepDetector(Detector):
                     tier=EvidenceTier.CONFIRMED,
                 )
             )
-        return sorted(
-            findings, key=lambda finding: (finding.file_path, finding.line)
-        )
+        return sorted(findings, key=lambda finding: (finding.file_path, finding.line))
 
 
 def _read_lines(file_path: str) -> list[str] | None:
