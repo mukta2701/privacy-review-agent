@@ -48,6 +48,12 @@ def main() -> None:
 @main.command()
 @click.option("--base-ref", default="origin/main")
 @click.option("--head-ref", default="HEAD")
+@click.option(
+    "--mode",
+    type=click.Choice(["org", "personal"]),
+    default="org",
+    envvar="PRIVACY_REVIEW_MODE",
+)
 @click.option("--path", "paths", multiple=True, type=click.Path(path_type=Path))
 @click.option("--format", "fmt", type=click.Choice(["json", "sarif", "md"]), default="md")
 @click.option("--output", default="")
@@ -62,6 +68,7 @@ def main() -> None:
 def scan(
     base_ref: str,
     head_ref: str,
+    mode: str,
     paths: tuple[Path, ...],
     fmt: str,
     output: str,
@@ -73,6 +80,7 @@ def scan(
     settings = load_settings(policies_dir=policies_dir)
     settings.offline_mode = offline
     settings.allow_verifier_egress = allow_verifier_egress
+    settings.mode = mode
     engine = ReviewEngine(settings=settings)
 
     baseline, is_legacy_baseline = _load_baseline(baseline_file)
@@ -183,9 +191,21 @@ def baseline_migrate(baseline_file: Path, output: Path | None) -> None:
 
 @main.command("enforce-rerun-approval")
 @click.option("--required-label", default="privacy-rerun-approved")
-def enforce_rerun_approval(required_label: str) -> None:
+@click.option(
+    "--mode",
+    type=click.Choice(["org", "personal"]),
+    default="org",
+    envvar="PRIVACY_REVIEW_MODE",
+)
+def enforce_rerun_approval(required_label: str, mode: str) -> None:
     security_team_slug = os.getenv("SECURITY_TEAM_SLUG", "")
     if not security_team_slug:
+        if mode == "personal":
+            click.echo(
+                "Skipping rerun approval: personal mode and "
+                "SECURITY_TEAM_SLUG is not configured."
+            )
+            return
         click.echo("Fail-closed: SECURITY_TEAM_SLUG is not configured.")
         raise SystemExit(2)
 

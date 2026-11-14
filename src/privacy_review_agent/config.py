@@ -20,6 +20,7 @@ class Settings:
     allow_verifier_egress: bool = False
     security_team_slug: str = ""
     required_rerun_label: str = "privacy-rerun-approved"
+    mode: str = "org"
 
 
 DEFAULT_POLICY_DIR = Path(__file__).parent / "policies"
