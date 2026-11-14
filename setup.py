@@ -8,6 +8,9 @@ setup(
     packages=find_packages(where="src"),
     include_package_data=True,
     install_requires=["click>=8.1.7", "PyYAML>=6.0.1"],
-    extras_require={"dev": ["pytest>=8.2.0", "ruff>=0.5.0"]},
+    extras_require={
+        "dev": ["pytest>=8.2.0", "ruff>=0.5.0"],
+        "semgrep": ["semgrep>=1.0"],
+    },
     entry_points={"console_scripts": ["privacy-review-agent=privacy_review_agent.cli:main"]},
 )

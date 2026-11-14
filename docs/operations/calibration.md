@@ -15,6 +15,8 @@ privacy-review-agent calibrate --fixture-set tests/fixtures
 - Deterministic output is true
 - Every current unsafe fixture file is still detected
   (fixture recall equals 1.0)
+- Every Semgrep rule test passes (only when Semgrep is installed;
+  with Semgrep absent this condition and its output key do not exist)
 
 The old fixture precision check (0.85 and above) is gone.
 It is replaced by the near-miss precision check.
@@ -95,7 +97,21 @@ The JSON output keeps the fixture-based keys (`precision`, `recall`,
 - `detectors`: one entry per detector name, each with precision,
   recall, `tp`, `fp` and `fn`
 - `known_gap_misses`: the sorted list of missed known-gap case ids
+- `semgrep_rule_tests`: the rule-test harness result (`rules`, `cases`,
+  `failures`), only when Semgrep is installed
 
 A zero denominator counts as 1.0. Floats are rounded to 4 decimals.
 Two runs produce byte-identical output: no temp paths, timestamps
 or other run-dependent values appear.
+
+## Semgrep rule tests
+
+Each rule file `<name>.yaml` under the Semgrep rules directory is tested
+against its sibling case files (`<name>.py`, `<name>.js`, `<name>.ts`). A
+case is the line after a `# ruleid: <id>` (or `// ruleid: <id>`) comment,
+which the rule must match, or after a `# ok: <id>` comment, which the rule
+must not match. The harness also checks that every rule has valid metadata
+(category from `policies/taxonomy.yaml`, severity
+`critical|high|medium|low`, confidence `high|medium|low`, non-empty
+remediation). Any violation fails the release gate: `calibrate` exits 2 with
+a `"semgrep rule tests: ..."` entry in its gate failures.

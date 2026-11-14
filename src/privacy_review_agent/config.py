@@ -21,6 +21,7 @@ class Settings:
     security_team_slug: str = ""
     required_rerun_label: str = "privacy-rerun-approved"
     mode: str = "org"
+    semgrep_rules_dir: Path | None = None
 
 
 DEFAULT_POLICY_DIR = Path(__file__).parent / "policies"
@@ -53,4 +54,5 @@ def load_settings(policies_dir: Path | None = None) -> Settings:
         bypass_markers={str(item).lower() for item in bypass.get("bypass_markers", [])},
         quasi_identifiers={str(item).lower() for item in prompt.get("quasi_identifiers", [])},
         llm_sinks={str(item).lower() for item in prompt.get("llm_sinks", [])},
+        semgrep_rules_dir=directory / "semgrep_rules",
     )

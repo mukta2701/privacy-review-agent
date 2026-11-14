@@ -21,6 +21,7 @@
 - [Command Reference](#command-reference)
 - [Output Formats](#output-formats)
 - [Blocking Policy](#blocking-policy)
+- [Optional Semgrep Engine](#optional-semgrep-engine)
 - [Suppressing False Positives](#suppressing-false-positives)
 - [Pre-commit Hook](#pre-commit-hook)
 - [CI Integration](#ci-integration-github-actions)
@@ -54,7 +55,7 @@ This tool closes that gap by running deterministic, policy-driven checks automat
 flowchart TD
     A[Developer writes code] --> B[git commit or CI trigger]
     B --> C[Collect staged / changed files]
-    C --> D[Run 6 detectors in parallel]
+    C --> D[Run detectors (6 keyword + optional Semgrep)]
     D --> E[Normalize findings\nGenerate fingerprints]
     E --> F[Check suppressions and baseline]
     F --> G{Blocking finding?}
@@ -76,6 +77,7 @@ flowchart LR
         D4[PII in Prompt Detector]
         D5[Missing Redaction Detector]
         D6[Policy Bypass Detector]
+        D7[Semgrep Detector (optional)]
     end
 
     subgraph Processing
@@ -91,7 +93,7 @@ flowchart LR
         SARIF[SARIF Report]
     end
 
-    D1 & D2 & D3 & D4 & D5 & D6 --> N
+    D1 & D2 & D3 & D4 & D5 & D6 & D7 --> N
     N --> S --> BL --> P
     P --> MD & JSON & SARIF
 ```
@@ -140,6 +142,7 @@ flowchart LR
 | CI | GitHub Actions |
 | Security Output | [SARIF 2.1.0](https://sarifweb.azurewebsites.net/) |
 | Optional | [Gitleaks](https://github.com/gitleaks/gitleaks) (enhanced secret scanning) |
+| Optional | [Semgrep](https://semgrep.dev/) (structural rules, `pip install -e ".[semgrep]"`) |
 
 ---
 
@@ -149,6 +152,7 @@ flowchart LR
 - pip
 - git (for diff-mode scanning and the pre-commit hook)
 - Optional: [Gitleaks](https://github.com/gitleaks/gitleaks) binary on your PATH for enhanced secret detection (regex results are always included and merged with gitleaks findings)
+- Optional: [Semgrep](https://semgrep.dev/) binary on your PATH for structural rules (install the `semgrep` extra; without it scans behave as before and print one stderr notice)
 
 ---
 
@@ -161,6 +165,9 @@ cd shiny-invention
 
 # 2. Install the package (creates the `privacy-review-agent` command)
 pip install -e .
+
+# 2b. Optional: structural rules via Semgrep (offline, local rules only)
+pip install -e ".[semgrep]"
 
 # 3. Verify installation
 privacy-review-agent --version
@@ -331,12 +338,34 @@ flowchart TD
 ```
 
 Every finding carries an evidence tier. `confirmed` means a structural rule
-matched — today that is only the secrets detector (built-in credential
-patterns and gitleaks). `keyword` means a sink marker and a sensitive marker
+matched — the secrets detector (built-in credential patterns and gitleaks)
+and the optional Semgrep detector. `keyword` means a sink marker and a sensitive marker
 appeared on the same line — that covers `pii_logging`,
 `third_party_transfer`, `pii_in_prompts`, `missing_redaction` and
 `policy_bypass`. Keyword-tier hits are reported as warnings and never block;
 they stay advisory until a structural rule confirms them in a later phase.
+
+---
+
+## Optional Semgrep Engine
+
+[Semgrep](https://semgrep.dev/) Community Edition runs as an optional
+structural detector alongside the built-in ones. It runs fully offline over
+the scanned files with only the local rule pack
+(`src/privacy_review_agent/policies/semgrep_rules/`): metrics off, no version
+check, no registry or network access. Findings enter the normal pipeline with
+tier `confirmed`, so baselines, suppressions, inline `privacy-ok` and
+changed-line gating apply unchanged. When a Semgrep finding and a keyword
+finding share file, line and category, the Semgrep finding wins.
+
+When `semgrep` is not installed, scans behave exactly as before and print one
+line to stderr:
+
+```
+Semgrep structural rules were skipped: ... Install it with `pip install 'privacy-review-agent[semgrep]'` to enable them.
+```
+
+Stdout (JSON, SARIF, Markdown) and exit codes are unaffected by the notice.
 
 ---
 
@@ -439,6 +468,11 @@ fi
 exit 0
 EOF
 
+The hook script itself is unchanged: it calls the CLI, so it inherits the
+Semgrep behaviour. When `semgrep` is not installed, the one-line Semgrep
+notice appears in the hook's terminal output without blocking the commit;
+install the `semgrep` extra to enable structural rules.
+
 # Step 4: Make it executable
 chmod +x ~/.git-hooks/pre-commit
 
@@ -534,6 +568,8 @@ shiny-invention/
 │   ├── engine.py               # Orchestration, blocking logic
 │   ├── models.py               # Finding dataclass and fingerprinting
 │   ├── config.py               # Settings and policy loader
+│   ├── semgrep_runner.py       # Offline Semgrep invocation seam
+│   ├── semgrep_harness.py      # Rule-test harness for the rule pack
 │   ├── git_diff.py             # Git integration for diff-mode scanning
 │   ├── suppressions.py         # Suppression policy with TTL validation
 │   ├── utils.py                # Shared helpers
@@ -545,7 +581,8 @@ shiny-invention/
 │   │   ├── third_party_transfer.py  # THIRD_PARTY_PII_TRANSFER
 │   │   ├── pii_in_prompts.py   # PII_IN_MODEL_PROMPT
 │   │   ├── missing_redaction.py     # INSUFFICIENT_REDACTION
-│   │   └── policy_bypass.py    # POLICY_BYPASS
+│   │   ├── policy_bypass.py    # POLICY_BYPASS
+│   │   └── semgrep.py          # Optional structural engine
 │   │
 │   ├── reporters/              # Output format renderers
 │   │   ├── markdown_reporter.py
@@ -558,7 +595,8 @@ shiny-invention/
 │       ├── redaction_rules.yaml   # Approved redaction helpers
 │       ├── vendor_allowlist.yaml  # Approved external vendors
 │       ├── bypass_rules.yaml      # Known bypass patterns
-│       └── prompt_rules.yaml      # LLM prompt risk patterns
+│       ├── prompt_rules.yaml      # LLM prompt risk patterns
+│       └── semgrep_rules/         # Optional Semgrep rule pack (layout note)
 │
 ├── tests/
 │   ├── unit/                   # Per-component unit tests
@@ -566,7 +604,8 @@ shiny-invention/
 │   └── fixtures/
 │       ├── safe/clean.py       # Clean file — expected 0 findings
 │       ├── labelled/cases.jsonl  # Labelled corpus (base64 lines)
-│       └── unsafe/             # Intentionally risky code per category
+│       ├── unsafe/             # Intentionally risky code per category
+│       └── semgrep_rules/      # Test-only Semgrep rule pack and cases
 │
 ├── docs/
 │   ├── plans/                  # Specification and implementation plans

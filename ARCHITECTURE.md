@@ -21,8 +21,9 @@ It detects:
 flowchart TD
     A["Developer opens/updates PR"] --> B["GitHub Action starts privacy-review job"]
     B --> C["Engine collects changed files + changed lines"]
-    C --> D["Run detector suite (6 detectors)"]
-    D --> E["Normalize findings (severity, confidence, fingerprint)"]
+    C --> D["Run detector suite (6 keyword detectors + optional Semgrep)"]
+    D --> N["Drop keyword findings shadowed by a Semgrep finding"]
+    N --> E["Normalize findings (severity, confidence, fingerprint)"]
     E --> F["Apply baseline + suppression policy"]
     F --> G{"Blocking policy met?"}
     G -- "Yes" --> H["Fail check (exit 2) + PR findings comment + SARIF/JSON output"]
@@ -35,7 +36,9 @@ flowchart TD
 2. `Engine` (orchestration, dedupe, gating, baseline/suppression handling)
 3. `Detectors` (category-specific scanners; keyword matching is whole-word and
    identifier-aware, full-line `#`/`//` comments are skipped, and secrets merge
-   built-in regex results with gitleaks findings)
+   built-in regex results with gitleaks findings; the optional `semgrep`
+   detector runs Semgrep Community Edition offline over the scanned files with
+   only the local rule pack and maps results to `confirmed` findings)
 4. `Policies` (YAML rule/config packs)
 5. `Reporters` (Markdown, JSON, SARIF outputs)
 6. `CI Workflow` (GitHub Actions integration and enforcement)
@@ -52,6 +55,9 @@ A finding blocks merge only if all conditions are true:
 6. Not in baseline snapshot
 
 Phase 1 keyword-only hits are advisory until structural rules confirm them.
+When a Semgrep finding and a keyword-tier finding share file, line and
+category, the structural finding wins and the keyword finding is dropped;
+keyword findings with no structural match are untouched.
 
 ## 5) Governance and Controls
 
@@ -109,7 +115,8 @@ unchanged. In `personal` mode with an empty `SECURITY_TEAM_SLUG`,
 4. JSON report artifact (90-day retention in current workflow)
 5. Calibration metrics (fixture precision and recall, per-detector precision
    and recall over the labelled corpus scored by the new `calibration` module,
-   determinism)
+   determinism, plus the Semgrep rule-test harness result when Semgrep is
+   installed)
 
 ## 8) Current Go-Live Blockers
 

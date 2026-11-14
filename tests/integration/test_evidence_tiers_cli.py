@@ -27,7 +27,7 @@ def test_unsafe_fixtures_block_only_on_confirmed_secrets():
         main, ["scan", "--path", "tests/fixtures/unsafe", "--format", "json"]
     )
     assert result.exit_code == 2
-    doc = json.loads(result.output)
+    doc = json.loads(result.stdout)
     blocking = [f for f in doc["findings"] if f["blocking"]]
     assert blocking, "expected the hardcoded-key fixture to block"
     for finding in blocking:
@@ -53,7 +53,7 @@ def test_keyword_only_logging_warns_and_exits_zero(tmp_path):
         main, ["scan", "--path", str(target), "--format", "json"]
     )
     assert result.exit_code == 0
-    doc = json.loads(result.output)
+    doc = json.loads(result.stdout)
     assert len(doc["findings"]) == 1
     finding = doc["findings"][0]
     assert finding["category"] == "RAW_PII_LOGGING"
@@ -71,7 +71,7 @@ def test_keyword_only_logging_warns_and_exits_zero(tmp_path):
         main, ["scan", "--path", str(target), "--format", "sarif"]
     )
     assert sarif.exit_code == 0
-    payload = json.loads(sarif.output)
+    payload = json.loads(sarif.stdout)
     entry = payload["runs"][0]["results"][0]
     assert entry["level"] == "warning"
     assert entry["properties"]["tier"] == "keyword"

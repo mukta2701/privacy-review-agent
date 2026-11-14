@@ -76,7 +76,7 @@ def test_scan_org_mode_ignores_marker(tmp_path, monkeypatch):
         main, ["scan", "--mode", "org", "--path", target, "--format", "json"]
     )
     assert result.exit_code == 2
-    doc = json.loads(result.output)
+    doc = json.loads(result.stdout)
     assert all("suppressed" not in finding for finding in doc["findings"])
 
 
@@ -85,7 +85,7 @@ def test_scan_default_mode_ignores_marker(tmp_path, monkeypatch):
     target = _write(tmp_path / "marked.py", MARKED_LINE + "\n")
     result = CliRunner().invoke(main, ["scan", "--path", target, "--format", "json"])
     assert result.exit_code == 2
-    doc = json.loads(result.output)
+    doc = json.loads(result.stdout)
     assert all("suppressed" not in finding for finding in doc["findings"])
 
 

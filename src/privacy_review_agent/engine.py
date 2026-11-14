@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -11,6 +13,7 @@ from privacy_review_agent.detectors import (
     PiiLoggingDetector,
     PolicyBypassDetector,
     SecretsDetector,
+    SemgrepDetector,
     ThirdPartyTransferDetector,
 )
 from privacy_review_agent.detectors.base import Detector, DetectorContext
@@ -23,6 +26,7 @@ from privacy_review_agent.models import (
     Severity,
     assign_occurrences,
 )
+from privacy_review_agent.semgrep_harness import HarnessResult, run_rule_tests
 from privacy_review_agent.suppressions import (
     is_suppressed,
     load_suppressions,
@@ -35,6 +39,23 @@ def _read_lines(file_path: str) -> list[str] | None:
         return Path(file_path).read_text(encoding="utf-8", errors="ignore").splitlines()
     except OSError:
         return None
+
+
+def _drop_shadowed_keywords(findings: list[Finding]) -> list[Finding]:
+    structural = {
+        (os.path.realpath(finding.file_path), finding.line, finding.category)
+        for finding in findings
+        if finding.detector == "semgrep"
+    }
+    if not structural:
+        return findings
+    return [
+        finding
+        for finding in findings
+        if finding.tier is not EvidenceTier.KEYWORD
+        or (os.path.realpath(finding.file_path), finding.line, finding.category)
+        not in structural
+    ]
 
 
 @dataclass
@@ -53,9 +74,10 @@ class CalibrationMetrics:
     known_gap_count: int = 0
     detectors: dict[str, dict[str, float | int]] = field(default_factory=dict)
     known_gap_misses: list[str] = field(default_factory=list)
+    semgrep_rule_tests: HarnessResult | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "precision": self.precision,
             "recall": self.recall,
             "deterministic": self.deterministic,
@@ -71,6 +93,9 @@ class CalibrationMetrics:
             "detectors": self.detectors,
             "known_gap_misses": self.known_gap_misses,
         }
+        if self.semgrep_rule_tests is not None:
+            payload["semgrep_rule_tests"] = self.semgrep_rule_tests.to_dict()
+        return payload
 
     def gate_failures(self) -> list[str]:
         failures: list[str] = []
@@ -82,6 +107,11 @@ class CalibrationMetrics:
             failures.append("output is not deterministic")
         if self.recall != 1.0:
             failures.append(f"unsafe fixture recall {self.recall} != 1.0")
+        if self.semgrep_rule_tests is not None and self.semgrep_rule_tests.failures:
+            failures.append(
+                "semgrep rule tests: "
+                + "; ".join(self.semgrep_rule_tests.failures)
+            )
         return failures
 
 
@@ -95,6 +125,7 @@ class ReviewEngine:
             PiiInPromptsDetector(),
             MissingRedactionDetector(),
             PolicyBypassDetector(),
+            SemgrepDetector(),
         ]
 
     def scan_ref(
@@ -130,6 +161,8 @@ class ReviewEngine:
         findings: list[Finding] = []
         for detector in self.detectors:
             findings.extend(detector.scan(files, context))
+
+        findings = _drop_shadowed_keywords(findings)
 
         deduped_legacy: dict[str, Finding] = {}
         for finding in findings:
@@ -190,8 +223,11 @@ class ReviewEngine:
         if not manifest.is_file():
             raise FileNotFoundError(f"calibration corpus manifest not found: {manifest}")
         corpus = score_corpus(self, manifest)
+        harness_result = None
+        if shutil.which("semgrep"):
+            harness_result = run_rule_tests(self.settings.semgrep_rules_dir)
         return self._combine_metrics(
-            precision, recall, stable, tp, fp, unsafe_file_count, corpus
+            precision, recall, stable, tp, fp, unsafe_file_count, corpus, harness_result
         )
 
     @staticmethod
@@ -219,6 +255,7 @@ class ReviewEngine:
         fp: int,
         unsafe_file_count: int,
         corpus: CorpusMetrics,
+        harness_result: HarnessResult | None = None,
     ) -> CalibrationMetrics:
         return CalibrationMetrics(
             precision=precision,
@@ -235,6 +272,7 @@ class ReviewEngine:
             known_gap_count=corpus.known_gap_count,
             detectors=corpus.detectors,
             known_gap_misses=corpus.known_gap_misses,
+            semgrep_rule_tests=harness_result,
         )
 
     def _collect_files(self, root: Path) -> list[Path]:

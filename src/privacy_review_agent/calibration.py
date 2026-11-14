@@ -133,6 +133,8 @@ def _scan_keys(engine: ReviewEngine, cases: list[dict[str, Any]]) -> list[tuple[
             owners[str(target)] = group
         result = engine.scan_files(paths)
         for finding in result.findings:
+            if finding.detector not in DETECTOR_NAMES:
+                continue
             group = owners.get(finding.file_path, [])
             if 1 <= finding.line <= len(group):
                 found.add((group[finding.line - 1]["id"], finding.detector))
