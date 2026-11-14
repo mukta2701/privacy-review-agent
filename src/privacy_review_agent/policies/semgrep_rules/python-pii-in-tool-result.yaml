@@ -1,0 +1,134 @@
+# Sinks are the returned values (`return <expr>`) of functions decorated
+# as an agent or MCP tool: `@mcp.tool` / `@mcp.tool(...)` (FastMCP / MCP
+# Python SDK), `@function_tool` / `@function_tool(...)` (OpenAI Agents SDK),
+# and `@tool` / `@tool(...)` (LangChain) but only when the file imports
+# `tool` from `langchain_core.tools` or `langchain.tools` before the
+# function, so an unrelated in-house `@tool` decorator does not block.
+# Both `def` and `async def` count; other decorators on the same function do
+# not stop a match. A `return` in a nested helper defined inside a tool is
+# not a sink, but a later `return` in the tool itself still is. Sources, the
+# explicit suffix allowlist and sanitisers are copied unchanged from
+# `python-pii-to-telemetry` (and so from `python-pii-to-third-party`): no
+# new names, no loosened boundaries. Single-function taint mode, our rules
+# only.
+rules:
+- id: python-pii-in-tool-result
+  languages:
+  - python
+  severity: WARNING
+  message: Personal data returned from agent/MCP tool without redaction
+  metadata:
+    category: PII_IN_MODEL_PROMPT
+    severity: high
+    confidence: high
+    remediation: Return only an opaque id or redacted fields from tools; do not return personal data to the model.
+  mode: taint
+  pattern-sources:
+  - patterns:
+    - pattern: $OBJ.$FIELD
+    - metavariable-regex:
+        metavariable: $FIELD
+        regex: '[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*'
+    - &id001
+      pattern-not-inside:
+        pattern-either:
+        - pattern: $Y is None
+        - pattern: $Y is not None
+        - pattern: $Y == $Z
+        - pattern: $Y != $Z
+        - pattern: $Y in $Z
+        - pattern: $Y not in $Z
+  - patterns:
+    - pattern: $DICT[$KEY]
+    - metavariable-regex:
+        metavariable: $KEY
+        regex: \A(?![\s\S]*\s)[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+    - *id001
+  - patterns:
+    - pattern: $X
+    - metavariable-regex:
+        metavariable: $X
+        regex: \A(?=[A-Za-z_][A-Za-z0-9_]*\Z)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+    - pattern-not-inside: email.$ATTR
+    - *id001
+  - pattern-either:
+    - pattern: req.body
+    - pattern: request.body
+    - pattern: req.headers
+    - pattern: request.headers
+  pattern-sinks:
+  - patterns:
+    - pattern: return $X
+    - pattern-either:
+      - pattern-inside: "@$D\ndef $F(...):\n  ...\n"
+      - pattern-inside: "@$D(...)\ndef $F(...):\n  ...\n"
+      - pattern-inside: "@$D\nasync def $F(...):\n  ...\n"
+      - pattern-inside: "@$D(...)\nasync def $F(...):\n  ...\n"
+    - metavariable-regex:
+        metavariable: $D
+        regex: \A(?:mcp\.tool|function_tool)\Z
+    - pattern-not-inside:
+        patterns:
+        - pattern-either:
+          - pattern-inside: "@$DT\ndef $F(...):\n  ...\n"
+          - pattern-inside: "@$DT(...)\ndef $F(...):\n  ...\n"
+          - pattern-inside: "@$DT\nasync def $F(...):\n  ...\n"
+          - pattern-inside: "@$DT(...)\nasync def $F(...):\n  ...\n"
+        - pattern-either:
+          - pattern: "def $G(...):\n  ...\n"
+          - pattern: "async def $G(...):\n  ...\n"
+        - pattern-not: "@$D2\ndef $G(...):\n  ...\n"
+        - pattern-not: "@$D2(...)\ndef $G(...):\n  ...\n"
+        - pattern-not: "@$D2\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@$D2(...)\nasync def $G(...):\n  ...\n"
+  - patterns:
+    - pattern: return $X
+    - pattern-either:
+      - pattern-inside: "@$D\ndef $F(...):\n  ...\n"
+      - pattern-inside: "@$D(...)\ndef $F(...):\n  ...\n"
+      - pattern-inside: "@$D\nasync def $F(...):\n  ...\n"
+      - pattern-inside: "@$D(...)\nasync def $F(...):\n  ...\n"
+    - metavariable-regex:
+        metavariable: $D
+        regex: \Atool\Z
+    - pattern-either:
+      - pattern-inside: 'from langchain_core.tools import tool
+
+          ...
+
+          '
+      - pattern-inside: 'from langchain.tools import tool
+
+          ...
+
+          '
+    - pattern-not-inside:
+        patterns:
+        - pattern-either:
+          - pattern-inside: "@$DT\ndef $F(...):\n  ...\n"
+          - pattern-inside: "@$DT(...)\ndef $F(...):\n  ...\n"
+          - pattern-inside: "@$DT\nasync def $F(...):\n  ...\n"
+          - pattern-inside: "@$DT(...)\nasync def $F(...):\n  ...\n"
+        - pattern-either:
+          - pattern: "def $G(...):\n  ...\n"
+          - pattern: "async def $G(...):\n  ...\n"
+        - pattern-not: "@$D2\ndef $G(...):\n  ...\n"
+        - pattern-not: "@$D2(...)\ndef $G(...):\n  ...\n"
+        - pattern-not: "@$D2\nasync def $G(...):\n  ...\n"
+        - pattern-not: "@$D2(...)\nasync def $G(...):\n  ...\n"
+  pattern-sanitizers:
+  - pattern-either:
+    - pattern: redact(...)
+    - pattern: $U.redact(...)
+    - pattern: mask(...)
+    - pattern: $U.mask(...)
+    - pattern: hash(...)
+    - pattern: $U.hash(...)
+    - pattern: tokenize(...)
+    - pattern: $U.tokenize(...)
+    - pattern: len(...)
+    - pattern: $U.len(...)
+    - pattern: bool(...)
+    - pattern: $U.bool(...)
+    - pattern: type(...)
+    - pattern: $U.type(...)
