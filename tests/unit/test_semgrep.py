@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -503,6 +504,22 @@ def test_detector_empty_pack_does_not_run(monkeypatch, tmp_path, capsys):
     assert not any(f.detector == "semgrep" for f in result.findings)
 
 
+def test_changed_map_gates_semgrep_blocking(monkeypatch, tmp_path):
+    paths = _install_stub(tmp_path / "bin", monkeypatch)
+    pack = _write_rule_pack(tmp_path / "pack")
+    target = tmp_path / "app.py"
+    target.write_text("print(user.email)\n", encoding="utf-8")
+    _write_stub_results(paths["results"], [_stub_match(target, 1)])
+
+    off_lines = _engine_with_pack(pack).scan_files(
+        [target], changed_map={str(target): {99}}
+    )
+    hits = [f for f in off_lines.findings if f.detector == "semgrep"]
+
+    assert len(hits) == 1
+    assert hits[0].blocking is False
+
+
 def _write_harness_pack(pack: Path, rule_id: str = "h-rule") -> Path:
     pack.mkdir(parents=True, exist_ok=True)
     (pack / "h.yaml").write_text(
@@ -758,6 +775,9 @@ def test_calibration_gate_fails_on_harness_failures():
     assert "semgrep rule tests" in failing.gate_failures()[0]
 
 
+@pytest.mark.skipif(
+    shutil.which("semgrep") is not None, reason="semgrep is installed"
+)
 def test_run_calibration_skips_harness_without_semgrep():
     from privacy_review_agent.engine import ReviewEngine
 

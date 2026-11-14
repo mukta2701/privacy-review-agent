@@ -1,0 +1,15 @@
+rules:
+  - id: sample-raw-pii-logging
+    languages: [python]
+    severity: WARNING
+    message: Raw PII written to logs without redaction
+    metadata:
+      category: RAW_PII_LOGGING
+      severity: high
+      confidence: high
+      remediation: Redact or mask PII before logging.
+    patterns:
+      - pattern: print($X, ...)
+      - metavariable-regex:
+          metavariable: $X
+          regex: (?i).*\b(email|ssn|phone)\b.*
