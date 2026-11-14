@@ -92,10 +92,15 @@ def test_rule_languages_cover_python_and_js_ts():
 
 def test_rule_metadata_is_valid_and_confirmed_blocking():
     rules = load_rules(PACK)
+    expected_categories = {
+        "python-pii-in-model-prompt": "PII_IN_MODEL_PROMPT",
+    }
 
     assert check_rule_metadata(PACK) == []
     for rule in rules:
-        assert rule.metadata["category"] == "RAW_PII_LOGGING"
+        assert rule.metadata["category"] == expected_categories.get(
+            rule.id, "RAW_PII_LOGGING"
+        )
         assert rule.metadata["severity"] == "high"
         assert rule.metadata["confidence"] == "high"
         assert rule.metadata["remediation"].strip()
