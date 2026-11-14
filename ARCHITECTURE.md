@@ -31,7 +31,7 @@ flowchart TD
 
 ## 3) Core Components
 
-1. `CLI` (`scan`, `baseline create`, `enforce-rerun-approval`, `calibrate`)
+1. `CLI` (`scan`, `baseline create`, `baseline migrate`, `enforce-rerun-approval`, `calibrate`)
 2. `Engine` (orchestration, dedupe, gating, baseline/suppression handling)
 3. `Detectors` (category-specific scanners; keyword matching is whole-word and
    identifier-aware, full-line `#`/`//` comments are skipped, and secrets merge
