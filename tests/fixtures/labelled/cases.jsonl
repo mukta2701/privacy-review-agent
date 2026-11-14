@@ -295,3 +295,6 @@
 {"id": "nm-semgrep-57", "ext": "py", "text_b64": "bW9kZWwuZ2VuZXJhdGVfY29udGVudChlbWFpbC51dGlscy5mb3JtYXRkYXRlKCkp", "expect": [], "kind": "near_miss", "tags": []}
 {"id": "nm-semgrep-58", "ext": "py", "text_b64": "TW9kZWwub2JqZWN0cy5jcmVhdGUoZW1haWw9dXNlci5lbWFpbCk=", "expect": [], "kind": "near_miss", "tags": []}
 {"id": "nm-semgrep-59", "ext": "py", "text_b64": "Ym90LnNlbmRfbWVzc2FnZShjaGF0X2lkLCB1c2VyLmVtYWlsKQ==", "expect": [], "kind": "near_miss", "tags": []}
+{"id": "tp-transfer-15", "ext": "py", "text_b64": "cmVxdWVzdHMucG9zdCgiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20veCIsIGpzb249eyJlIjogdXNlci5lbWFpbH0p", "expect": ["semgrep"], "kind": "true", "tags": []}
+{"id": "tp-transfer-16", "ext": "py", "text_b64": "aHR0cHguZ2V0KCJodHRwczovL2FwaS5leGFtcGxlLmNvbS94IiwgcGFyYW1zPXsicCI6IGYie3VzZXIucGhvbmV9In0p", "expect": ["semgrep"], "kind": "true", "tags": []}
+{"id": "nm-semgrep-60", "ext": "py", "text_b64": "cmVxdWVzdHMucG9zdCgiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20vY29sbGVjdCIsIGpzb249eyJmaWxlbmFtZSI6IGZpbGVuYW1lfSk=", "expect": [], "kind": "near_miss", "tags": []}

@@ -164,14 +164,14 @@ def _without_skipped(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _with_shadow_credit(
     found: list[tuple[str, str]], by_id: dict[str, dict[str, Any]]
 ) -> list[tuple[str, str]]:
-    """Credit a shadowed keyword hit: a `pii_logging` or `pii_in_prompts`
-    case with only a `semgrep` finding on its line counts as a keyword
-    hit, not a `semgrep` fp."""
+    """Credit a shadowed keyword hit: a `pii_logging`, `pii_in_prompts` or
+    `third_party_transfer` case with only a `semgrep` finding on its line
+    counts as a keyword hit, not a `semgrep` fp."""
     credited = {
         (cid, keyword)
         for cid, detector in found
         if detector == "semgrep"
-        for keyword in ("pii_logging", "pii_in_prompts")
+        for keyword in ("pii_logging", "pii_in_prompts", "third_party_transfer")
         if keyword in by_id.get(cid, {}).get("expect", [])
         and (cid, keyword) not in found
     }
