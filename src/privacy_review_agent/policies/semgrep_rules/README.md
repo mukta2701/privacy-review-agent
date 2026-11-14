@@ -33,8 +33,24 @@ attribute and key forms, like the keyword detector).
 The names come from `policies/sensitive_fields.yaml`, minus entries too
 generic for a blocking finding: standalone `name`, `message` and `body`
 are excluded, as are the identifier-only `user_id` and `customer_id`.
-Plurals (`emails`) and run-together lowercase (`useremail`, `accesstoken`)
-do not match, so the existing `kg-*` known gaps stay gaps.
+Plurals (`emails`, `tokens`) and run-together lowercase (`useremail`,
+`accesstoken`) do not match, so the existing `kg-*` known gaps stay gaps.
+
+Dropped after probing ordinary code (a bare or qualified use still matched,
+so the name is out; the keyword detector still flags these advisory):
+`upload` (`upload.id`, `upload_dir`), `chat` (`chat.id`), `location`
+(`file.location`), `lat`/`lon` (bare coordinates in telemetry), and
+standalone `headers` (`response.headers`). Raw request bodies and headers
+(`req.body`, `request.body`, `req.headers`, `request.headers`) stay explicit
+sources.
+
+Kept: `email`, `phone`, `first_name`, `last_name`, `address`, `ssn`,
+`passport`, `cookie`, `token`, `authorization` and `transcript`. A leading
+`_` still separates (`user_email`, `access_token`), but a trailing `_` or
+alnum ends the name, so `token_count`, `upload_dir` and `cookie_policy` do
+not match. An exact `token` (or `authToken`, `user.token`) still blocks: it
+is credential-like often enough to warrant a blocking finding, while
+suffixed and plural forms stay silent.
 
 Sanitisers are the approved redaction helpers from
 `policies/redaction_rules.yaml` (`redact`, `mask`, `hash`, `tokenize`):
