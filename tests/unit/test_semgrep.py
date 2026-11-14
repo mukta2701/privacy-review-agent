@@ -701,3 +701,101 @@ def test_harness_unknown_rule_id_annotation(monkeypatch, tmp_path):
     assert any("ghost-rule" in failure for failure in result.failures)
 
 
+def _passing_metrics(**overrides):
+    from privacy_review_agent.engine import CalibrationMetrics
+
+    fields = {
+        "precision": 1.0,
+        "recall": 1.0,
+        "deterministic": True,
+        "tp": 2,
+        "fp": 0,
+        "unsafe_file_count": 2,
+    }
+    fields.update(overrides)
+    return CalibrationMetrics(**fields)
+
+
+def test_calibration_dict_has_today_keys_without_harness():
+    payload = _passing_metrics().to_dict()
+
+    assert set(payload) == {
+        "precision",
+        "recall",
+        "deterministic",
+        "tp",
+        "fp",
+        "unsafe_file_count",
+        "overall_precision",
+        "overall_recall",
+        "near_miss_precision",
+        "near_miss_count",
+        "true_case_count",
+        "known_gap_count",
+        "detectors",
+        "known_gap_misses",
+    }
+    assert _passing_metrics().gate_failures() == []
+
+
+def test_calibration_gate_fails_on_harness_failures():
+    from privacy_review_agent.semgrep_harness import HarnessResult
+
+    passing = _passing_metrics(
+        semgrep_rule_tests=HarnessResult(rules=1, cases=2, failures=[])
+    )
+    assert passing.gate_failures() == []
+    assert passing.to_dict()["semgrep_rule_tests"] == {
+        "rules": 1,
+        "cases": 2,
+        "failures": [],
+    }
+
+    failing = _passing_metrics(
+        semgrep_rule_tests=HarnessResult(rules=1, cases=2, failures=["r: boom"])
+    )
+    assert len(failing.gate_failures()) == 1
+    assert "semgrep rule tests" in failing.gate_failures()[0]
+
+
+def test_run_calibration_skips_harness_without_semgrep():
+    from privacy_review_agent.engine import ReviewEngine
+
+    engine = ReviewEngine()
+    metrics = engine.run_calibration(Path("tests/fixtures"))
+
+    assert metrics.semgrep_rule_tests is None
+    assert "semgrep_rule_tests" not in metrics.to_dict()
+
+
+def test_score_corpus_ignores_unknown_detector():
+    from types import SimpleNamespace
+
+    from privacy_review_agent.calibration import DETECTOR_NAMES, score_corpus
+    from privacy_review_agent.models import Confidence, Finding, Severity
+
+    hits = [
+        Finding(
+            detector="semgrep",
+            category="RAW_PII_LOGGING",
+            severity=Severity.HIGH,
+            confidence=Confidence.HIGH,
+            file_path="corpus_case.py",
+            line=1,
+            message="h-rule: m",
+            evidence="print(user.email)",
+            remediation="fix",
+        )
+    ]
+
+    class FakeEngine:
+        def scan_files(self, files):
+            return SimpleNamespace(findings=list(hits))
+
+    metrics = score_corpus(
+        FakeEngine(), Path("tests/fixtures/labelled/cases.jsonl")
+    )
+
+    assert set(metrics.detectors) == set(DETECTOR_NAMES)
+
+
