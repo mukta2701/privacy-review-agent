@@ -1,11 +1,24 @@
 from __future__ import annotations
 
 import json
+import shutil
 
 from click.testing import CliRunner
 
 from privacy_review_agent.cli import main
 from privacy_review_agent.models import Confidence, Finding, Severity
+
+
+def _hide_semgrep(monkeypatch):
+    """Isolate keyword-tier assertions from the shipped Semgrep rule pack."""
+    real_which = shutil.which
+    monkeypatch.setattr(
+        shutil,
+        "which",
+        lambda *args, **kwargs: None
+        if args and args[0] == "semgrep"
+        else real_which(*args, **kwargs),
+    )
 
 
 def _secret_probe(target) -> Finding:
@@ -22,7 +35,8 @@ def _secret_probe(target) -> Finding:
     )
 
 
-def test_unsafe_fixtures_block_only_on_confirmed_secrets():
+def test_unsafe_fixtures_block_only_on_confirmed_secrets(monkeypatch):
+    _hide_semgrep(monkeypatch)
     result = CliRunner().invoke(
         main, ["scan", "--path", "tests/fixtures/unsafe", "--format", "json"]
     )
@@ -46,7 +60,8 @@ def test_unsafe_fixtures_block_only_on_confirmed_secrets():
             assert finding["blocking"] is False
 
 
-def test_keyword_only_logging_warns_and_exits_zero(tmp_path):
+def test_keyword_only_logging_warns_and_exits_zero(tmp_path, monkeypatch):
+    _hide_semgrep(monkeypatch)
     target = tmp_path / "only_keyword.js"
     target.write_text("console.log(req.body)\n")
     result = CliRunner().invoke(

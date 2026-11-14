@@ -14,6 +14,7 @@ DETECTOR_NAMES = {
     "pii_in_prompts",
     "missing_redaction",
     "policy_bypass",
+    "semgrep",
 }
 
 RESPONSE_BODY = "response" + "." + "body"
