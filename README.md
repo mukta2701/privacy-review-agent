@@ -226,7 +226,15 @@ privacy-review-agent scan --path ./src --baseline-file .privacy-review-baseline.
 
 # Use a custom policy directory
 privacy-review-agent scan --path ./src --policies-dir ./my-policies --format md
+
+# Choose the review mode (default: org; reads PRIVACY_REVIEW_MODE when omitted)
+privacy-review-agent scan --mode personal --path ./src --format md
 ```
+
+`--mode` accepts `org` or `personal`. In `personal` mode, a finding whose own
+line carries a trailing `# privacy-ok: <reason>` (or `// privacy-ok: <reason>`)
+comment is non-blocking but still listed in every report. In `org` mode those
+markers are ignored. See [Suppressing False Positives](#suppressing-false-positives).
 
 ### `baseline` — Snapshot existing findings
 
@@ -272,7 +280,15 @@ Blocks a CI rerun unless the required label is present on the pull request. Prev
 
 ```bash
 privacy-review-agent enforce-rerun-approval --required-label privacy-rerun-approved
+
+# In personal mode without a security team, the check is skipped (exit 0)
+privacy-review-agent enforce-rerun-approval --mode personal
 ```
+
+`enforce-rerun-approval` also takes `--mode org|personal` (default `org`,
+reads `PRIVACY_REVIEW_MODE` when omitted). In `personal` mode with an empty
+`SECURITY_TEAM_SLUG` it prints a skip message and exits 0. In `org` mode with
+an empty slug it still fails closed with exit 2.
 
 ---
 
@@ -356,6 +372,31 @@ Get the fingerprint by running a JSON scan:
 ```bash
 privacy-review-agent scan --path <file> --format json | python3 -m json.tool
 ```
+
+### Inline suppressions (personal mode only)
+
+In `personal` mode, a finding is suppressed when the exact line it is reported
+on carries a trailing marker with a non-empty reason:
+
+```python
+API_KEY = "sk_test_12345678901234567890"  # privacy-ok: test fixture
+```
+
+```javascript
+const key = "sk_test_12345678901234567890"; // privacy-ok: test fixture
+```
+
+- Only the finding's own line is examined. A marker on the line above or below
+  has no effect.
+- The reason is required: `# privacy-ok:` and `# privacy-ok` suppress nothing.
+- A suppressed finding is non-blocking (exit 0) but still shown in every
+  report, marked suppressed with its reason (Markdown `SUPPRESSED` heading,
+  JSON `suppressed`/`suppression_reason` keys, SARIF `inSource` suppression).
+- In `org` mode inline markers are ignored completely; findings, blocking and
+  report output are exactly as without the marker.
+- Inline markers bypass the approver, ticket and TTL rules above, which is why
+  they only work in `personal` mode. File-based suppressions and baselines work
+  the same in both modes.
 
 ---
 
@@ -445,6 +486,11 @@ flowchart TD
 
 1. Copy `.github/workflows/privacy-review.yml` to your repo
 2. Set `SECURITY_TEAM_SLUG` in your repo secrets (format: `org/team-name`) for rerun approval enforcement
+3. Set the `PRIVACY_REVIEW_MODE` repository variable to `org` (default) or
+   `personal`. The workflow passes it to the scan and rerun-approval steps,
+   falling back to `org` when unset. Personal repositories with no security
+   team should set `PRIVACY_REVIEW_MODE=personal` so the rerun-approval step
+   is skipped instead of failing closed.
 
 ---
 

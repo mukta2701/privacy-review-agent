@@ -23,28 +23,31 @@ def render(result: ScanResult) -> str:
             )
             seen_rules.add(finding.category)
 
-        runs["results"].append(
-            {
-                "ruleId": finding.category,
-                "level": "error" if finding.blocking else "warning",
-                "message": {"text": finding.message},
-                "locations": [
-                    {
-                        "physicalLocation": {
-                            "artifactLocation": {"uri": finding.file_path},
-                            "region": {"startLine": finding.line},
-                        }
+        entry: dict[str, object] = {
+            "ruleId": finding.category,
+            "level": "error" if finding.blocking else "warning",
+            "message": {"text": finding.message},
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": finding.file_path},
+                        "region": {"startLine": finding.line},
                     }
-                ],
-                "properties": {
-                    "confidence": finding.confidence.value,
-                    "severity": finding.severity.value,
-                    "fingerprint": finding.fingerprint,
-                    "blocking": finding.blocking,
-                    "tier": finding.tier.value,
-                },
-            }
-        )
+                }
+            ],
+            "properties": {
+                "confidence": finding.confidence.value,
+                "severity": finding.severity.value,
+                "fingerprint": finding.fingerprint,
+                "blocking": finding.blocking,
+                "tier": finding.tier.value,
+            },
+        }
+        if finding.suppressed:
+            entry["suppressions"] = [
+                {"kind": "inSource", "justification": finding.suppression_reason}
+            ]
+        runs["results"].append(entry)
 
     payload = {"version": "2.1.0", "runs": [runs]}
     return json.dumps(payload, indent=2)
