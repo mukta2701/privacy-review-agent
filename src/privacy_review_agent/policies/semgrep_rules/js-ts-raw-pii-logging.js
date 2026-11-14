@@ -12,6 +12,8 @@ console.log(
   user.email
 );
 // ruleid: js-ts-raw-pii-logging
+console.log(user.phoneNumber);
+// ruleid: js-ts-raw-pii-logging
 console.log(req.body);
 // ruleid: js-ts-raw-pii-logging
 logger.info(request.headers);

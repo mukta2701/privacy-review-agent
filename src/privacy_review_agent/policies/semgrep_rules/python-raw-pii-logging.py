@@ -12,6 +12,8 @@ logger.info(
     user.email
 )
 # ruleid: python-raw-pii-logging
+print(user.phone_number)
+# ruleid: python-raw-pii-logging
 print(req.body)
 # ruleid: python-raw-pii-logging
 logging.info(request.headers)
