@@ -18,9 +18,17 @@ needs_semgrep = pytest.mark.skipif(
 
 # Each block is one probe; the sink (match) line is at the given offset.
 POSITIVE_BLOCKS: list[tuple[str, int]] = [
-    ('client.chat.completions.create(model=m, messages=[{"role": "user", "content": user.email}])', 0),
+    (
+        "client.chat.completions.create(model=m, "
+        'messages=[{"role": "user", "content": user.email}])',
+        0,
+    ),
     ("client.responses.create(model=m, input=user.phone)", 0),
-    ('client.messages.create(model=m, max_tokens=1, messages=[{"role": "user", "content": f"hi {user.email}"}])', 0),
+    (
+        "client.messages.create(model=m, max_tokens=1, "
+        'messages=[{"role": "user", "content": f"hi {user.email}"}])',
+        0,
+    ),
     ("model.generate_content(user.ssn)", 0),
     ('client.models.generate_content(model=m, contents=user.first_name)', 0),
     ('client.chat.completions.create(model=m, messages=f"hi {user.email}")', 0),
@@ -29,17 +37,29 @@ POSITIVE_BLOCKS: list[tuple[str, int]] = [
     ('client.chat.completions.create(model=m, messages="hi " + user.email)', 0),
     ('client.chat.completions.create(model=m, messages="".join(["hi ", user.email]))', 0),
     ("prompt = user.email\nclient.chat.completions.create(model=m, messages=prompt)", 1),
-    ('msgs = [{"role": "user", "content": user.email}]\nclient.chat.completions.create(model=m, messages=msgs)', 1),
+    (
+        'msgs = [{"role": "user", "content": user.email}]\n'
+        "client.chat.completions.create(model=m, messages=msgs)",
+        1,
+    ),
     ("client.responses.create(model=m, input=user.email)", 0),
     ("client.models.generate_content(model=m, contents=user.email)", 0),
     ("client.chat.completions.create(model=m, system=user.email)", 0),
     ("client.chat.completions.create(model=m, prompt=user.email)", 0),
-    ("async def _f():\n    await client.chat.completions.create(model=m, messages=[{\"role\": \"user\", \"content\": user.email}])", 1),
+    (
+        "async def _f():\n    await client.chat.completions.create(model=m, "
+        'messages=[{"role": "user", "content": user.email}])',
+        1,
+    ),
     ("chat = model.start_chat()\nchat.send_message(user.email)", 1),
     ("chat = client.chats.create(model=m)\nchat.send_message(user.email)", 1),
     ("client.chat.completions.create(model=m, messages=user.phone_number)", 0),
     ("client.chat.completions.create(model=m, messages=user.emailVerified)", 0),
-    ('client.beta.chat.completions.stream(model=m, messages=[{"role": "user", "content": user.email}])', 0),
+    (
+        "client.beta.chat.completions.stream(model=m, "
+        'messages=[{"role": "user", "content": user.email}])',
+        0,
+    ),
     ("client.responses.parse(model=m, input=user.email)", 0),
     ("client.completions.create(model=m, prompt=user.email)", 0),
     ('client.messages.stream(model=m, messages=[{"role": "user", "content": user.email}])', 0),
@@ -114,7 +134,8 @@ def test_end_to_end_finding_is_confirmed_blocking_and_shadows_keyword(tmp_path):
 
     target = tmp_path / "app.py"
     target.write_text(
-        'client.messages.create(model=m, max_tokens=1, messages=[{"role": "user", "content": user.email}])\n',
+        "client.messages.create(model=m, max_tokens=1, "
+        'messages=[{"role": "user", "content": user.email}])\n',
         encoding="utf-8",
     )
 

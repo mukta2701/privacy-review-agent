@@ -3,7 +3,8 @@ client.chat.completions.create(model=m, messages=[{"role": "user", "content": us
 # ruleid: python-pii-in-model-prompt
 client.responses.create(model=m, input=user.phone)
 # ruleid: python-pii-in-model-prompt
-client.messages.create(model=m, max_tokens=1, messages=[{"role": "user", "content": f"hi {user.email}"}])
+client.messages.create(
+    model=m, max_tokens=1, messages=[{"role": "user", "content": f"hi {user.email}"}])
 # ruleid: python-pii-in-model-prompt
 model.generate_content(user.ssn)
 # ruleid: python-pii-in-model-prompt
@@ -64,7 +65,8 @@ def make_chats_calls():
 
 async def make_async_calls():
     # ruleid: python-pii-in-model-prompt
-    await client.chat.completions.create(model=m, messages=[{"role": "user", "content": user.email}])
+    await client.chat.completions.create(
+        model=m, messages=[{"role": "user", "content": user.email}])
 # ok: python-pii-in-model-prompt
 bot.send_message(chat_id, user.email)
 other = make_bot()
