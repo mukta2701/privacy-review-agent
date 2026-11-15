@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -1146,6 +1147,9 @@ def test_async_function_named_like_sink_drops():
     assert is_recoverable_url_candidate(candidate, data, []) is False
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 12), reason="PEP 695 syntax needs Python 3.12+"
+)
 def test_pep695_generic_function_drops():
     source = (
         "from flask import redirect\n"
@@ -1156,6 +1160,9 @@ def test_pep695_generic_function_drops():
     assert is_recoverable_url_candidate(candidate, data, []) is False
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 12), reason="PEP 695 syntax needs Python 3.12+"
+)
 def test_pep695_type_param_named_like_sink_drops():
     source = (
         "from flask import redirect\n"
