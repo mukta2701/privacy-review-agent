@@ -156,17 +156,37 @@ standalone URL construction not passed to a listed sink, Django
 `reverse(...)`, `requests`/`httpx` query parameters (already covered by
 `python-pii-to-third-party`), aliased or late imports as authorisation for
 earlier calls, imports inside functions, arbitrary receiver methods such as
-`self.redirect(...)`, or cross-function taint. Known resolution gaps
+`self.redirect(...)`, or cross-function taint. A same-named import inside
+one function no longer hides a correctly imported framework sink in
+another function: a private candidate pass
+(`policies/semgrep_internal/python-pii-in-url-candidate.yaml`, not a
+public rule) matches the same tainted-argument shapes by bare name only,
+and the detector reports a candidate as `python-pii-in-url` only when a
+conservative whole-file check confirms it — the call sits directly in a
+module-level function body, that function never binds the name, the last
+module-level binding of the name is the qualifying unaliased framework
+import, and no ordinary match already covers the call. Anything uncertain
+(module-level, method, nested, lambda/comprehension, or
+decorator/default calls; conditional, star, relative, wrong-origin, or
+aliased imports; intervening bindings; ambiguous or unmappable spans)
+stays silent. Deliberately dropped rare cases: generic (PEP 695)
+functions, whose type-parameter scope keeps the check from proving the
+module binding; any file containing a `global <sink>` declaration, which
+can rebind the module name from any scope; and a module-level
+comprehension variable named like the sink, which the module scan
+over-approximates as a rebinding. Known resolution gaps
  (all single-function, file-local analysis): a module-level reassignment
  before the framework import still suppresses the finding even though the
- import restores the binding; an import of the same name from another
- module in an earlier function suppresses a later bare call; star imports
+ import restores the binding; star imports
  (`from flask import *`) are not tracked as authorising imports; a function
  parameter or local variable named `flask` does not stop a literal
  `flask.redirect(...)` call from matching; and rebinding inside `if`/`try`
  blocks, `global` declarations, or `del` statements is not modelled (an
  `if`-guarded reassignment in the same function suppresses the finding,
- while the `try`/`global`/`del` forms still report).
+ while the `try`/`global`/`del` forms still report). Internal candidates
+ are not public rules: they carry no sibling cases and are excluded from
+ rule-test and calibration counts; their recovery limits are covered by
+ detector-level tests instead.
 
 The schema-field rule reuses the bare-name source (`$X`) of the URL rule
 unchanged: the same sensitive names with the same identifier-part

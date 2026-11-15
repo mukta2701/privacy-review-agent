@@ -166,3 +166,10 @@ must not match. The harness also checks that every rule has valid metadata
 `critical|high|medium|low`, confidence `high|medium|low`, non-empty
 remediation). Any violation fails the release gate: `calibrate` exits 2 with
 a `"semgrep rule tests: ..."` entry in its gate failures.
+
+These counts cover the public pack under the Semgrep rules directory
+only. The private URL candidate config under
+`policies/semgrep_internal/` is not a public rule: the harness never
+discovers or executes it, it carries no sibling cases, and it never
+changes the rule, case, or failure counts. Candidate recovery is exercised
+through detector and engine tests instead.

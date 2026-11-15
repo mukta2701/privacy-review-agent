@@ -1,0 +1,82 @@
+# Internal candidate pass for `python-pii-in-url`. NOT a public rule: it
+# lives outside `policies/semgrep_rules` so the rule-test harness and
+# calibration never discover or count it, and it carries no sibling cases.
+# Semgrep CE import resolution lets a function-local import of one of these
+# names in one function suppress a correctly imported framework sink in
+# another function. This pass matches the same tainted-argument shapes by
+# bare syntactic name only (`$SINK` constrained to the five framework
+# sinks, with no import resolution), so attribute calls such as
+# `flask.redirect(...)` and aliases such as `bounce(...)` never match.
+# Candidate matches are never reported directly: the detector keeps one
+# only when a conservative whole-file AST scope check (UTF-8 byte spans,
+# module-level function body, no local binding, proven last qualifying
+# module import, no covering ordinary match) confirms it, and reports it
+# as an ordinary `python-pii-in-url` finding.
+rules:
+- id: python-pii-in-url-candidate
+  languages:
+  - python
+  severity: WARNING
+  message: Personal data placed in a redirect URL or generated link without redaction
+  metadata:
+    category: PII_IN_URL
+    severity: high
+    confidence: high
+    remediation: Pass an opaque id or token instead of personal data in redirect URLs
+      and generated links, or send the data in a POST body.
+  mode: taint
+  pattern-sources:
+  - patterns:
+    - pattern: $OBJ.$FIELD
+    - metavariable-regex:
+        metavariable: $FIELD
+        regex: '[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*'
+    - &id001
+      pattern-not-inside:
+        pattern-either:
+        - pattern: $Y is None
+        - pattern: $Y is not None
+        - pattern: $Y == $Z
+        - pattern: $Y != $Z
+        - pattern: $Y in $Z
+        - pattern: $Y not in $Z
+  - patterns:
+    - pattern: $DICT[$KEY]
+    - metavariable-regex:
+        metavariable: $KEY
+        regex: \A(?![\s\S]*\s)[\s\S]*(?:(?<![0-9A-Za-z_])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z_])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z_])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+    - *id001
+  - patterns:
+    - pattern: $X
+    - metavariable-regex:
+        metavariable: $X
+        regex: \A(?=[A-Za-z_][A-Za-z0-9_]*\Z)[\s\S]*(?:(?<![0-9A-Za-z])(?:email|Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Email|EMAIL)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|_verified(?![0-9A-Za-z_])|_address(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_])|Verified(?![0-9A-Za-z_])|Address(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:phone|Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Phone|PHONE)(?:(?![0-9A-Za-z_])|_number(?![0-9A-Za-z_])|Number(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:ssn|Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<=[a-z0-9])(?:Ssn|SSN)(?:(?![0-9A-Za-z_])|_last4(?![0-9A-Za-z_])|Last4(?![0-9A-Za-z_]))|(?<![0-9A-Za-z])(?:first|First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:First|FIRST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<![0-9A-Za-z])(?:last|Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_])|(?<=[a-z0-9])(?:Last|LAST)(?:[^0-9A-Za-z]+|(?<=[a-z0-9])(?=[A-Z]))(?:name|Name|NAME)(?![0-9A-Za-z_]))[\s\S]*
+    - pattern-not-inside: email.$ATTR
+    - *id001
+  - pattern-either:
+    - pattern: req.body
+    - pattern: request.body
+    - pattern: req.headers
+    - pattern: request.headers
+  pattern-sinks:
+  - patterns:
+    - pattern: $SINK(...)
+    - metavariable-regex:
+        metavariable: $SINK
+        regex: \A(?:redirect|url_for|HttpResponseRedirect|HttpResponsePermanentRedirect|RedirectResponse)\Z
+  pattern-sanitizers:
+  - pattern-either:
+    - pattern: redact(...)
+    - pattern: $U.redact(...)
+    - pattern: mask(...)
+    - pattern: $U.mask(...)
+    - pattern: hash(...)
+    - pattern: $U.hash(...)
+    - pattern: tokenize(...)
+    - pattern: $U.tokenize(...)
+    - pattern: len(...)
+    - pattern: $U.len(...)
+    - pattern: bool(...)
+    - pattern: $U.bool(...)
+    - pattern: type(...)
+    - pattern: $U.type(...)
