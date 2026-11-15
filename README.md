@@ -365,7 +365,10 @@ call as blocking `RAW_PII_LOGGING` (`python-raw-pii-logging`: `print` and the
 `logging`/`logger`/`log` level methods; `js-ts-raw-pii-logging`:
 `console.*` and the `logger`/`log` level methods), personal data sent to a
 model call as blocking `PII_IN_MODEL_PROMPT` (`python-pii-in-model-prompt`:
-OpenAI chat/responses/completions, Anthropic messages with `model=`, Google
+OpenAI chat completions, `responses` and `completions.create` (the
+`responses` and `completions.create` sinks only with a visible `model=`
+keyword; an OpenAI call whose `model` is supplied only through `**kwargs`
+is not covered), Anthropic messages with `model=`, Google
 generate/send_message; `python-pii-in-tool-result`: personal data returned
 from an agent or MCP tool function, which re-enters the model's context),
 personal data placed in a redirect URL or generated link as blocking

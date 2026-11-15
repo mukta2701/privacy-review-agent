@@ -63,6 +63,7 @@ POSITIVE_BLOCKS: list[tuple[str, int]] = [
     ("client.responses.parse(model=m, input=user.email)", 0),
     ("client.completions.create(model=m, prompt=user.email)", 0),
     ('client.messages.stream(model=m, messages=[{"role": "user", "content": user.email}])', 0),
+    ("client.responses.create(input=user.email, model=m)", 0),
 ]
 
 NEAR_MISS_BLOCKS: list[str] = [
@@ -89,6 +90,11 @@ NEAR_MISS_BLOCKS: list[str] = [
     "client.chat.completions.create(model=m, messages=user.phone_type)",
     "client.chat.completions.create(model=m, messages=emails)",
     "client.chat.completions.create(model=m, messages=useremail)",
+    "survey.responses.create(email=user.email)",
+    "form.responses.create(phone=user.phone)",
+    "job.completions.create(email=user.email)",
+    "obj.completions.create(email=user.email)",
+    "client.responses.stream(input=user.email)",
 ]
 
 

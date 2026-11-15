@@ -115,3 +115,15 @@ client.chat.completions.create(model=m, messages=emails)
 # ok: python-pii-in-model-prompt
 client.chat.completions.create(model=m, messages=useremail)
 pending = user.email
+# ok: python-pii-in-model-prompt
+survey.responses.create(email=user.email)
+# ok: python-pii-in-model-prompt
+form.responses.create(phone=user.phone)
+# ok: python-pii-in-model-prompt
+job.completions.create(email=user.email)
+# ok: python-pii-in-model-prompt
+obj.completions.create(email=user.email)
+# ok: python-pii-in-model-prompt
+client.responses.stream(input=user.email)
+# ruleid: python-pii-in-model-prompt
+client.responses.create(input=user.email, model=m)
