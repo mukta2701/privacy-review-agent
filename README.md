@@ -119,7 +119,10 @@ matches `authToken` but not `max_tokens`. Full-line `#` and `//` comments are
 skipped by the keyword detectors. Secret detection always runs its built-in
 patterns and merges them with gitleaks results when gitleaks is available.
 Gitleaks is run once per scanned file with `--source`, so only the files
-under review are scanned.
+under review are scanned. Each per-file gitleaks run is bounded by a fixed
+120-second limit, and a run whose report is not a list of JSON objects is
+silently skipped; timed-out or malformed runs keep the built-in regex
+findings and the successful gitleaks results from the other files.
 
 ### Severity Model
 

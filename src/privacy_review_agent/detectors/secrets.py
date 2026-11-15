@@ -19,6 +19,8 @@ SECRET_PATTERNS = [
     re.compile(r"(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*[\"'][^\"']{8,}[\"']"),
 ]
 
+GITLEAKS_TIMEOUT = 120
+
 
 def _merge_secret_findings(
     gitleaks_findings: list[Finding], regex_findings: list[Finding]
@@ -103,8 +105,10 @@ class SecretsDetector(Detector):
                 "-",
             ]
             try:
-                result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-            except OSError:
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=GITLEAKS_TIMEOUT, check=False
+                )
+            except (OSError, subprocess.TimeoutExpired):
                 continue
 
             if result.returncode not in (0, 1):
@@ -113,6 +117,11 @@ class SecretsDetector(Detector):
             try:
                 entries = json.loads(result.stdout or "[]")
             except json.JSONDecodeError:
+                continue
+
+            if not isinstance(entries, list) or not all(
+                isinstance(entry, dict) for entry in entries
+            ):
                 continue
 
             for entry in entries:
