@@ -917,6 +917,7 @@ def test_recovered_candidate_becomes_canonical_finding(monkeypatch, tmp_path):
             return [candidate]
         return []
 
+    monkeypatch.setattr("shutil.which", lambda *args, **kwargs: "/fake/bin/semgrep")
     monkeypatch.setattr(detector_mod, "run_semgrep", fake_run)
     result = ReviewEngine(settings=load_settings()).scan_files([target])
 
@@ -951,6 +952,7 @@ def test_repeated_candidate_emits_one_finding(monkeypatch, tmp_path):
             return [candidate, candidate]
         return []
 
+    monkeypatch.setattr("shutil.which", lambda *args, **kwargs: "/fake/bin/semgrep")
     monkeypatch.setattr(detector_mod, "run_semgrep", fake_run)
     result = ReviewEngine(settings=load_settings()).scan_files([target])
 
@@ -999,6 +1001,7 @@ def test_pack_without_url_rule_skips_recovery(monkeypatch, tmp_path):
         calls.append(str(rules_dir))
         return []
 
+    monkeypatch.setattr("shutil.which", lambda *args, **kwargs: "/fake/bin/semgrep")
     monkeypatch.setattr(detector_mod, "run_semgrep", fake_run)
     settings = load_settings()
     settings.semgrep_rules_dir = pack
@@ -1024,6 +1027,7 @@ def test_recovery_failure_keeps_primary_findings(monkeypatch, tmp_path, capsys):
             raise SemgrepFailed("boom")
         return [ordinary]
 
+    monkeypatch.setattr("shutil.which", lambda *args, **kwargs: "/fake/bin/semgrep")
     monkeypatch.setattr(detector_mod, "run_semgrep", fake_run)
     result = ReviewEngine(settings=load_settings()).scan_files([target])
 
