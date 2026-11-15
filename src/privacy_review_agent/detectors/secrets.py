@@ -9,6 +9,7 @@ from pathlib import Path
 
 from privacy_review_agent.detectors.base import Detector, DetectorContext
 from privacy_review_agent.models import Confidence, EvidenceTier, Finding, Severity
+from privacy_review_agent.semgrep_runner import _target_arg
 from privacy_review_agent.utils import iter_text_files
 
 SECRET_PATTERNS = [
@@ -83,7 +84,7 @@ class SecretsDetector(Detector):
         if not shutil.which("gitleaks"):
             return []
 
-        file_args = [str(path) for path in files if path.exists()]
+        file_args = [_target_arg(path) for path in files if path.exists()]
         if not file_args:
             return []
 
@@ -95,6 +96,7 @@ class SecretsDetector(Detector):
             "json",
             "--report-path",
             "-",
+            "--",
             *file_args,
         ]
         try:
