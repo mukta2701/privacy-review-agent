@@ -84,48 +84,50 @@ class SecretsDetector(Detector):
         if not shutil.which("gitleaks"):
             return []
 
-        file_args = [_target_arg(path) for path in files if path.exists()]
-        if not file_args:
-            return []
-
-        cmd = [
-            "gitleaks",
-            "detect",
-            "--no-git",
-            "--report-format",
-            "json",
-            "--report-path",
-            "-",
-            "--",
-            *file_args,
-        ]
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        except OSError:
-            return []
-
-        if result.returncode not in (0, 1):
-            return []
-
-        try:
-            entries = json.loads(result.stdout or "[]")
-        except json.JSONDecodeError:
-            return []
-
         findings: list[Finding] = []
-        for entry in entries:
-            findings.append(
-                Finding(
-                    detector=self.name,
-                    category="SECRET_EXPOSURE",
-                    severity=Severity.CRITICAL,
-                    confidence=Confidence.HIGH,
-                    file_path=str(entry.get("File", "")),
-                    line=int(entry.get("StartLine", 1)),
-                    message=str(entry.get("Description", "Potential secret detected")),
-                    evidence=str(entry.get("Match", ""))[:200],
-                    remediation="Remove secret from code and rotate credential.",
-                    tier=EvidenceTier.CONFIRMED,
+        for path in files:
+            if not path.exists():
+                continue
+            # Gitleaks `detect` takes its target from `--source` (default `.`),
+            # so positional paths are not a supported way to pick files. Scan
+            # each file with its own `--source` run instead.
+            cmd = [
+                "gitleaks",
+                "detect",
+                "--no-git",
+                "--source",
+                _target_arg(path),
+                "--report-format",
+                "json",
+                "--report-path",
+                "-",
+            ]
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            except OSError:
+                continue
+
+            if result.returncode not in (0, 1):
+                continue
+
+            try:
+                entries = json.loads(result.stdout or "[]")
+            except json.JSONDecodeError:
+                continue
+
+            for entry in entries:
+                findings.append(
+                    Finding(
+                        detector=self.name,
+                        category="SECRET_EXPOSURE",
+                        severity=Severity.CRITICAL,
+                        confidence=Confidence.HIGH,
+                        file_path=str(entry.get("File", "")),
+                        line=int(entry.get("StartLine", 1)),
+                        message=str(entry.get("Description", "Potential secret detected")),
+                        evidence=str(entry.get("Match", ""))[:200],
+                        remediation="Remove secret from code and rotate credential.",
+                        tier=EvidenceTier.CONFIRMED,
+                    )
                 )
-            )
         return findings
