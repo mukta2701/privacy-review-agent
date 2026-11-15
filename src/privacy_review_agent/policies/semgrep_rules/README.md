@@ -169,7 +169,12 @@ import, and no ordinary match already covers the call. Anything uncertain
 (module-level, method, nested, lambda/comprehension, or
 decorator/default calls; conditional, star, relative, wrong-origin, or
 aliased imports; intervening bindings; ambiguous or unmappable spans)
-stays silent. Known resolution gaps
+stays silent. Deliberately dropped rare cases: generic (PEP 695)
+functions, whose type-parameter scope keeps the check from proving the
+module binding; any file containing a `global <sink>` declaration, which
+can rebind the module name from any scope; and a module-level
+comprehension variable named like the sink, which the module scan
+over-approximates as a rebinding. Known resolution gaps
  (all single-function, file-local analysis): a module-level reassignment
  before the framework import still suppresses the finding even though the
  import restores the binding; star imports

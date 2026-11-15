@@ -183,3 +183,89 @@ def test_public_harness_calibration_serialization():
         "cases": 359,
         "failures": [],
     }
+
+
+BLOCKER_PREFIX = (
+    "from flask import redirect\n"
+    "def internal(user):\n"
+    "    from helpers import redirect\n"
+    "    return redirect(user.id)\n"
+)
+
+
+@needs_semgrep
+def test_walrus_target_binding_blocks_recovery(tmp_path):
+    from privacy_review_agent.engine import ReviewEngine
+
+    sync_target = _write(
+        tmp_path,
+        "walrus_target.py",
+        BLOCKER_PREFIX
+        + "def profile(user, helper):\n"
+        "    (redirect := helper).x = 1\n"
+        '    return redirect(f"/p?email={user.email}")\n',
+    )
+    async_target = _write(
+        tmp_path,
+        "walrus_target_async.py",
+        BLOCKER_PREFIX
+        + "async def profile(user, helper):\n"
+        "    (redirect := helper).x = 1\n"
+        '    return redirect(f"/p?email={user.email}")\n',
+    )
+
+    assert _url_hits(ReviewEngine().scan_files([sync_target])) == []
+    assert _url_hits(ReviewEngine().scan_files([async_target])) == []
+
+
+@needs_semgrep
+def test_competing_alias_in_same_import_blocks_recovery(tmp_path):
+    from privacy_review_agent.engine import ReviewEngine
+
+    poisoned = _write(
+        tmp_path,
+        "competing_alias.py",
+        "from flask import redirect, render_template as redirect\n"
+        "def internal(user):\n"
+        "    from helpers import redirect\n"
+        "    return redirect(user.id)\n"
+        "def profile(user):\n"
+        '    return redirect(f"/p?email={user.email}")\n',
+    )
+    control = _write(
+        tmp_path,
+        "multi_name_import.py",
+        "from flask import redirect, render_template\n"
+        "def internal(user):\n"
+        "    from helpers import redirect\n"
+        "    return redirect(user.id)\n"
+        "def profile(user):\n"
+        '    return redirect(f"/p?email={user.email}")\n',
+    )
+
+    assert _url_hits(ReviewEngine().scan_files([poisoned])) == []
+    control_hits = _url_hits(ReviewEngine().scan_files([control]))
+    assert [hit.line for hit in control_hits] == [6]
+
+
+@needs_semgrep
+def test_function_named_like_sink_blocks_recovery(tmp_path):
+    from privacy_review_agent.engine import ReviewEngine
+
+    sync_target = _write(
+        tmp_path,
+        "func_named_sink.py",
+        BLOCKER_PREFIX
+        + "def redirect(user):\n"
+        "    return redirect(user.email)\n",
+    )
+    async_target = _write(
+        tmp_path,
+        "func_named_sink_async.py",
+        BLOCKER_PREFIX
+        + "async def redirect(user):\n"
+        "    return redirect(user.email)\n",
+    )
+
+    assert _url_hits(ReviewEngine().scan_files([sync_target])) == []
+    assert _url_hits(ReviewEngine().scan_files([async_target])) == []

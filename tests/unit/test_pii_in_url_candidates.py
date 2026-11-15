@@ -1042,3 +1042,149 @@ def test_realpath_identity_counts_as_same_file():
     ordinary = _ordinary(CLEAN_FLASK, path="app.py")
     assert os.path.realpath("./app.py") == os.path.realpath("app.py")
     assert is_recoverable_url_candidate(candidate, data, [ordinary]) is False
+
+
+# ---------------------------------------------------------------------------
+# Round-2 review blockers: recovered false positives that must stay silent
+# ---------------------------------------------------------------------------
+
+BLOCKER_PREFIX = (
+    "from flask import redirect\n"
+    "def internal(user):\n"
+    "    from helpers import redirect\n"
+    "    return redirect(user.id)\n"
+)
+
+
+def test_walrus_in_assignment_target_binding_drops():
+    source = (
+        BLOCKER_PREFIX
+        + "def profile(user, helper):\n"
+        "    (redirect := helper).x = 1\n"
+        '    return redirect(f"/p?email={user.email}")\n'
+    )
+    data, candidate = _candidate(source, index=-1)
+    assert is_recoverable_url_candidate(candidate, data, []) is False
+
+
+def test_walrus_in_assignment_target_binding_drops_async():
+    source = (
+        BLOCKER_PREFIX
+        + "async def profile(user, helper):\n"
+        "    (redirect := helper).x = 1\n"
+        '    return redirect(f"/p?email={user.email}")\n'
+    )
+    data, candidate = _candidate(source, index=-1)
+    assert is_recoverable_url_candidate(candidate, data, []) is False
+
+
+def test_module_walrus_in_assignment_target_drops():
+    source = (
+        BLOCKER_PREFIX
+        + "(redirect := helper).x = 1\n"
+        + "def profile(user):\n"
+        '    return redirect(f"/p?email={user.email}")\n'
+    )
+    data, candidate = _candidate(source, index=-1)
+    assert is_recoverable_url_candidate(candidate, data, []) is False
+
+
+def test_module_walrus_in_subscript_target_drops():
+    source = (
+        BLOCKER_PREFIX
+        + "d[(redirect := helper)] = 1\n"
+        + "def profile(user):\n"
+        '    return redirect(f"/p?email={user.email}")\n'
+    )
+    data, candidate = _candidate(source, index=-1)
+    assert is_recoverable_url_candidate(candidate, data, []) is False
+
+
+def test_competing_alias_in_same_import_drops():
+    source = (
+        "from flask import redirect, render_template as redirect\n"
+        "def internal(user):\n"
+        "    from helpers import redirect\n"
+        "    return redirect(user.id)\n"
+        + "def profile(user):\n"
+        '    return redirect(f"/p?email={user.email}")\n'
+    )
+    data, candidate = _candidate(source, index=-1)
+    assert is_recoverable_url_candidate(candidate, data, []) is False
+
+
+def test_multi_name_import_without_alias_keeps():
+    source = (
+        "from flask import redirect, render_template\n"
+        "def internal(user):\n"
+        "    from helpers import redirect\n"
+        "    return redirect(user.id)\n"
+        + "def profile(user):\n"
+        '    return redirect(f"/p?email={user.email}")\n'
+    )
+    data, candidate = _candidate(source, index=-1)
+    assert is_recoverable_url_candidate(candidate, data, []) is True
+
+
+def test_function_named_like_sink_drops():
+    source = (
+        BLOCKER_PREFIX
+        + "def redirect(user):\n"
+        "    return redirect(user.email)\n"
+    )
+    data, candidate = _candidate(source, index=-1)
+    assert is_recoverable_url_candidate(candidate, data, []) is False
+
+
+def test_async_function_named_like_sink_drops():
+    source = (
+        BLOCKER_PREFIX
+        + "async def redirect(user):\n"
+        "    return redirect(user.email)\n"
+    )
+    data, candidate = _candidate(source, index=-1)
+    assert is_recoverable_url_candidate(candidate, data, []) is False
+
+
+def test_pep695_generic_function_drops():
+    source = (
+        "from flask import redirect\n"
+        "def profile[T](user: T):\n"
+        "    return redirect(user.email)\n"
+    )
+    data, candidate = _candidate(source)
+    assert is_recoverable_url_candidate(candidate, data, []) is False
+
+
+def test_pep695_type_param_named_like_sink_drops():
+    source = (
+        "from flask import redirect\n"
+        "def profile[redirect](user):\n"
+        "    return redirect(user.email)\n"
+    )
+    data, candidate = _candidate(source)
+    assert is_recoverable_url_candidate(candidate, data, []) is False
+
+
+def test_global_rebinding_in_another_function_drops():
+    source = (
+        "from flask import redirect\n"
+        "def patch(h):\n"
+        "    global redirect\n"
+        "    redirect = h\n"
+        + "def profile(user):\n"
+        "    return redirect(user.email)\n"
+    )
+    data, candidate = _candidate(source, index=-1)
+    assert is_recoverable_url_candidate(candidate, data, []) is False
+
+
+def test_module_comprehension_variable_drops():
+    source = (
+        "from flask import redirect\n"
+        "xs = [redirect for redirect in []]\n"
+        + "def profile(user):\n"
+        "    return redirect(user.email)\n"
+    )
+    data, candidate = _candidate(source, index=-1)
+    assert is_recoverable_url_candidate(candidate, data, []) is False
