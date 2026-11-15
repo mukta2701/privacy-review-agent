@@ -118,6 +118,8 @@ word parts, so `name` matches `userName` but not `filename`, and `token`
 matches `authToken` but not `max_tokens`. Full-line `#` and `//` comments are
 skipped by the keyword detectors. Secret detection always runs its built-in
 patterns and merges them with gitleaks results when gitleaks is available.
+Gitleaks is run once per scanned file with `--source`, so only the files
+under review are scanned.
 
 ### Severity Model
 
