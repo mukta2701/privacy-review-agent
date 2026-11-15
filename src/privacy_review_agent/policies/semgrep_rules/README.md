@@ -26,12 +26,15 @@ only.
 - `python-pii-in-model-prompt` (`python-pii-in-model-prompt.yaml`, cases in
   `python-pii-in-model-prompt.py`): OpenAI `chat.completions`
   (`create`/`parse`/`stream`), `beta.chat.completions` (`parse`/`stream`),
-  `responses` (`create`/`parse`/`stream`) and `completions.create`; Anthropic
-  `messages.create`/`stream` (only with a visible `model=` keyword, so a
-  Twilio-style SMS `messages.create(to=..., body=...)` does not match);
-  Google `generate_content`, `models.generate_content`, and `send_message`
-  only on a chat assigned in the same function from `start_chat(...)` or
-  `chats.create(...)`.
+  `responses` (`create`/`parse`/`stream`, only with a visible `model=`
+  keyword, so an ordinary Django-style
+  `survey.responses.create(email=user.email)` call does not match) and
+  `completions.create` (likewise only with a visible `model=` keyword);
+  Anthropic `messages.create`/`stream` (only with a visible `model=`
+  keyword, so a Twilio-style SMS `messages.create(to=..., body=...)` does
+  not match); Google `generate_content`, `models.generate_content`, and
+  `send_message` only on a chat assigned in the same function from
+  `start_chat(...)` or `chats.create(...)`.
 - `python-pii-to-third-party` (`python-pii-to-third-party.yaml`, cases in
   `python-pii-to-third-party.py`): `requests.get/post/put/patch/delete/request`
   and `httpx.get/post/put/patch/delete/request` (any tainted argument counts),
@@ -90,8 +93,10 @@ allowlist and sanitisers unchanged (same `pattern-sources` and
 `pattern-sanitizers` blocks, so the same names match and the same
 near-misses stay silent). Only the sinks are new. It does not cover
 LangChain or LlamaIndex call sites, JS/TS model calls, the deprecated
-legacy completion call, or `**kwargs`-only Anthropic calls with no visible
-`model=` keyword.
+legacy completion call, `**kwargs`-only Anthropic calls with no visible
+`model=` keyword, or OpenAI `responses` and `completions.create` calls whose
+`model` is supplied only through `**kwargs` (no visible `model=` keyword,
+so they stay silent).
 
 The third-party rule reuses the model-prompt rule's sources, explicit
 suffix allowlist and sanitisers unchanged (same `pattern-sources` and
