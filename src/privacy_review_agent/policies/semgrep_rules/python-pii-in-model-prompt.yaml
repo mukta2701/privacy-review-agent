@@ -1,9 +1,11 @@
 # Sinks are current OpenAI, Anthropic and Google model calls: any argument
-# tainted counts, on any receiver (`$C`). OpenAI covers `chat.completions`
-# (`create`/`parse`/`stream`), `beta.chat.completions` (`parse`/`stream`),
-# `responses` (`create`/`parse`/`stream`) and `completions.create`. Anthropic
-# `messages.create`/`stream` require a visible `model=` keyword, so a Twilio
-# SMS `client.messages.create(to=..., body=...)` does not match. Google covers
+# tainted counts. OpenAI `responses` (`create`/`parse`/`stream`) and
+# `completions.create` match only with a visible `model=` keyword (in any
+# argument position), so an ordinary Django-style `survey.responses.create(...)`
+# call stays silent; OpenAI `chat.completions` (`create`/`parse`/`stream`) and
+# `beta.chat.completions` (`parse`/`stream`) match on any receiver (`$C`).
+# Anthropic `messages.create`/`stream` require a visible `model=` keyword, so
+# a Twilio SMS `client.messages.create(to=..., body=...)` does not match. Google covers
 # `generate_content` and `models.generate_content`; `send_message` only counts
 # on a chat assigned in the same function from `start_chat(...)` or
 # `chats.create(...)`. The deprecated legacy completion call is out of
@@ -62,10 +64,10 @@ rules:
     - pattern: $C.chat.completions.stream(...)
     - pattern: $C.beta.chat.completions.parse(...)
     - pattern: $C.beta.chat.completions.stream(...)
-    - pattern: $C.responses.create(...)
-    - pattern: $C.responses.parse(...)
-    - pattern: $C.responses.stream(...)
-    - pattern: $C.completions.create(...)
+    - pattern: $C.responses.create(..., model=$M, ...)
+    - pattern: $C.responses.parse(..., model=$M, ...)
+    - pattern: $C.responses.stream(..., model=$M, ...)
+    - pattern: $C.completions.create(..., model=$M, ...)
     - pattern: $C.messages.create(..., model=$M, ...)
     - pattern: $C.messages.stream(..., model=$M, ...)
     - pattern: $C.generate_content(...)
