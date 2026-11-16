@@ -34,14 +34,14 @@
 which privacy-review-agent
 ```
 
-Expected: a path like `/usr/local/bin/privacy-review-agent` or `/Users/m1ghty/Library/Python/3.x/bin/privacy-review-agent`
+Expected: a path like `/usr/local/bin/privacy-review-agent` or `~/Library/Python/3.x/bin/privacy-review-agent`
 
 If you see `privacy-review-agent not found`, proceed to Step 2. If you see a path, skip to Step 3.
 
 - [ ] **Step 2: Install the agent (only if Step 1 failed)**
 
 ```bash
-cd "/Users/m1ghty/~ My Files/02 - Personal/shiny-invention"
+cd /path/to/privacy-review-agent
 pip install -e .
 ```
 
@@ -263,7 +263,7 @@ No output expected.
 git config --global core.hooksPath
 ```
 
-Expected: `/Users/m1ghty/.git-hooks`
+Expected: `~/.git-hooks`
 
 - [ ] **Step 3: Check ~/.gitconfig directly to confirm**
 
@@ -274,7 +274,7 @@ grep -A1 "\[core\]" ~/.gitconfig
 Expected to see something like:
 ```
 [core]
-    hooksPath = /Users/m1ghty/.git-hooks
+    hooksPath = ~/.git-hooks
 ```
 
 ---
@@ -328,7 +328,7 @@ rm -rf /tmp/hook-test
 - [ ] **Step 1: Navigate to the project**
 
 ```bash
-cd "/Users/m1ghty/~ My Files/02 - Personal/shiny-invention"
+cd /path/to/privacy-review-agent
 ```
 
 - [ ] **Step 2: Stage a known-dangerous fixture and attempt commit**

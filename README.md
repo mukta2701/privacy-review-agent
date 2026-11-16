@@ -12,6 +12,7 @@ analytics and third-party APIs, right at `git commit`, offline and for free.
 ![Cost](https://img.shields.io/badge/cost-free-2ea44f)
 ![Precision](https://img.shields.io/badge/near--miss%20precision-100%25-blueviolet)
 ![Semgrep](https://img.shields.io/badge/engine-Semgrep%20CE-orange)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 [What it catches](#-what-it-catches) · [Quick start](#-quick-start) · [How it decides](#-how-it-decides-what-blocks) · [Accuracy](#-accuracy-measured-not-guessed) · [Use it everywhere](#-use-it-everywhere) · [Reference](#-reference)
 
@@ -75,8 +76,8 @@ Values passed through an approved helper (`redact`, `mask`, `hash`, `tokenize`) 
 ## 🚀 Quick start
 
 ```bash
-git clone https://github.com/mukta2701/shiny-invention.git
-cd shiny-invention
+git clone https://github.com/mukta2701/privacy-review-agent.git
+cd privacy-review-agent
 pip install -e ".[semgrep]"        # the semgrep extra turns on structural rules (recommended)
 
 privacy-review-agent scan --path ./src                               # scan a folder
@@ -312,5 +313,9 @@ tests/
 - [`docs/operations/runbook.md`](docs/operations/runbook.md): day-to-day use
 - [`docs/operations/calibration.md`](docs/operations/calibration.md): accuracy targets and tuning
 - [`src/privacy_review_agent/policies/semgrep_rules/README.md`](src/privacy_review_agent/policies/semgrep_rules/README.md): rule details
+
+## 📄 License
+
+[MIT](LICENSE): free to use, modify and share.
 
 <div align="center"><sub>Built for developers who want privacy checks they can trust, not ones they learn to ignore.</sub></div>

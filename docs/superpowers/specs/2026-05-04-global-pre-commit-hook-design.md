@@ -103,7 +103,7 @@ This matches the existing agent blocking policy in `engine.py._is_blocking()` â€
 
 ```bash
 # 1. Install the agent globally
-cd "/Users/m1ghty/~ My Files/02 - Personal/shiny-invention"
+cd /path/to/privacy-review-agent
 pip install -e .
 
 # 2. Create the global hooks directory
