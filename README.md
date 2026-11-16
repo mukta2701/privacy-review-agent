@@ -76,8 +76,8 @@ Values passed through an approved helper (`redact`, `mask`, `hash`, `tokenize`) 
 ## 🚀 Quick start
 
 ```bash
-git clone https://github.com/mukta2701/shiny-invention.git
-cd shiny-invention
+git clone https://github.com/mukta2701/privacy-review-agent.git
+cd privacy-review-agent
 pip install -e ".[semgrep]"        # the semgrep extra turns on structural rules (recommended)
 
 privacy-review-agent scan --path ./src                               # scan a folder

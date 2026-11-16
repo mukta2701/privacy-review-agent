@@ -41,7 +41,7 @@ If you see `privacy-review-agent not found`, proceed to Step 2. If you see a pat
 - [ ] **Step 2: Install the agent (only if Step 1 failed)**
 
 ```bash
-cd /path/to/shiny-invention
+cd /path/to/privacy-review-agent
 pip install -e .
 ```
 
@@ -328,7 +328,7 @@ rm -rf /tmp/hook-test
 - [ ] **Step 1: Navigate to the project**
 
 ```bash
-cd /path/to/shiny-invention
+cd /path/to/privacy-review-agent
 ```
 
 - [ ] **Step 2: Stage a known-dangerous fixture and attempt commit**
